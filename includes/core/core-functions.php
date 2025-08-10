@@ -1203,8 +1203,8 @@ function csv_import_system_health_check(): array {
         'php_version_ok' => true,
         'curl_ok'        => true,
         'wp_version_ok'  => true,
-        'import_locks'   => true, // Standardmäßig auf OK (true) setzen
-        'stuck_processes' => true, // Standardmäßig auf OK (true) setzen
+        'import_locks_ok' => true,    // GEÄNDERT: Klarere Benennung
+        'no_stuck_processes' => true, // GEÄNDERT: Klarere Benennung
     ];
 
     // Memory Check
@@ -1239,32 +1239,29 @@ function csv_import_system_health_check(): array {
     $health['permissions_ok'] = is_writable( $upload_dir['basedir'] );
 
     // ==========================================================
-    // FINALE KORREKTUR: DIREKTE DATENBANKABFRAGE
+    // KORRIGIERT: Einheitliche Logik true = OK, false = Problem
     // ==========================================================
 
     global $wpdb;
 
-    // Import Lock Check (Direkte DB-Abfrage, um Cache zu umgehen)
+    // Import Lock Check: true = keine Locks (OK), false = Locks vorhanden (Problem)
     $lock_value = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'csv_import_running_lock' LIMIT 1" );
     $lock_data = maybe_unserialize($lock_value);
-    if ( ! empty($lock_data) ) {
-        $health['import_locks'] = false; // Problem gefunden
-    }
+    $health['import_locks_ok'] = empty($lock_data); // KORRIGIERT: empty() = true = OK
 
-    // Stuck Process Check (Direkte DB-Abfrage, um Cache zu umgehen)
+    // Stuck Process Check: true = keine hängenden Prozesse (OK), false = hängend (Problem)
     $progress_value = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'csv_import_progress' LIMIT 1" );
     if ( ! empty($progress_value) ) {
         $progress = maybe_unserialize($progress_value);
         if ( is_array($progress) && !empty($progress['running']) && !empty($progress['start_time']) ) {
             $runtime = time() - $progress['start_time'];
-            if ($runtime > 600) { // Länger als 10 Minuten
-                 $health['stuck_processes'] = false; // Problem gefunden
-            }
+            $health['no_stuck_processes'] = $runtime <= 600; // KORRIGIERT: <= 600 = true = OK
+        } else {
+            $health['no_stuck_processes'] = true; // Kein aktiver Prozess = OK
         }
+    } else {
+        $health['no_stuck_processes'] = true; // Keine Progress-Daten = OK
     }
-    // ==========================================================
-    // ENDE DER KORREKTUR
-    // ==========================================================
 
     return $health;
 }
