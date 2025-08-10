@@ -753,12 +753,6 @@ function csv_import_emergency_reset_handler() {
 }
 
 /**
- * Handler für System-Health AJAX-Request
- */
-<?php
-/**
- * PROFESSIONELLE LÖSUNG: Health-Check AJAX Handler Korrektur
- * 
  * Ersetzen Sie in includes/admin/admin-ajax.php die Funktion:
  * csv_import_system_health_handler()
  */
