@@ -15,6 +15,7 @@ class CSV_Import_Pro_Run {
 	private array $existing_slugs = [];
 	private string $source;
 	private array $csv_data = [];
+    private array $mapping = [];
 
 	private function __construct( string $source ) {
 		$this->source     = $source;
