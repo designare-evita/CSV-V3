@@ -755,6 +755,18 @@ function csv_import_emergency_reset_handler() {
 /**
  * Handler für System-Health AJAX-Request
  */
+<?php
+/**
+ * PROFESSIONELLE LÖSUNG: Health-Check AJAX Handler Korrektur
+ * 
+ * Ersetzen Sie in includes/admin/admin-ajax.php die Funktion:
+ * csv_import_system_health_handler()
+ */
+
+/**
+ * Handler für System-Health AJAX-Request
+ * PROFESSIONELLE VERSION - Korrekte Interpretation verschiedener Check-Typen
+ */
 function csv_import_system_health_handler() {
     // Sicherheitsprüfungen
     check_ajax_referer( 'csv_import_ajax', 'nonce' );
@@ -811,30 +823,104 @@ function csv_import_system_health_handler() {
             'disk_free_space' => disk_free_space( ABSPATH )
         ];
         
-        // Gesamtstatus berechnen
+        // PROFESSIONELLE LÖSUNG: Check-Type-basierte Interpretation
         $issues = [];
         
-        // Plugin-Health prüfen
+        // Plugin-Health prüfen (Standard: true = OK, false = Problem)
         foreach ( $health_data['plugin_health'] as $check => $status ) {
             if ( ! $status ) {
                 $issues[] = "Plugin: {$check} fehlt";
             }
         }
         
-        // System-Health prüfen
+        // System-Health prüfen mit Check-Type-spezifischer Logik
         if ( isset( $health_data['system_health'] ) && is_array( $health_data['system_health'] ) ) {
+            
+            // Definiere Check-Types mit ihrer jeweiligen Semantik
+            $check_semantics = [
+                // "Negative" Checks: false = gut, true = Problem
+                'import_locks' => [
+                    'type' => 'negative',
+                    'good_value' => false,
+                    'description' => 'Import-Locks'
+                ],
+                'stuck_processes' => [
+                    'type' => 'negative', 
+                    'good_value' => false,
+                    'description' => 'Hängende Prozesse'
+                ],
+                
+                // "Positive" Checks: true = gut, false = Problem  
+                'memory_ok' => [
+                    'type' => 'positive',
+                    'good_value' => true,
+                    'description' => 'Memory Limit'
+                ],
+                'time_ok' => [
+                    'type' => 'positive',
+                    'good_value' => true, 
+                    'description' => 'Execution Time'
+                ],
+                'disk_space_ok' => [
+                    'type' => 'positive',
+                    'good_value' => true,
+                    'description' => 'Disk Space'
+                ],
+                'permissions_ok' => [
+                    'type' => 'positive',
+                    'good_value' => true,
+                    'description' => 'File Permissions'
+                ],
+                'php_version_ok' => [
+                    'type' => 'positive',
+                    'good_value' => true,
+                    'description' => 'PHP Version'
+                ],
+                'curl_ok' => [
+                    'type' => 'positive',
+                    'good_value' => true,
+                    'description' => 'cURL Extension'
+                ],
+                'wp_version_ok' => [
+                    'type' => 'positive',
+                    'good_value' => true,
+                    'description' => 'WordPress Version'
+                ]
+            ];
+            
+            // Interpretiere jeden Check basierend auf seinem Typ
             foreach ( $health_data['system_health'] as $check => $status ) {
-                if ( $status === false ) {
-                    $issues[] = "System: {$check} Problem";
+                if ( isset( $check_semantics[$check] ) ) {
+                    $semantic = $check_semantics[$check];
+                    
+                    // Prüfe ob der Wert dem "guten" Wert entspricht
+                    if ( $status !== $semantic['good_value'] ) {
+                        $issues[] = "System: {$semantic['description']} Problem";
+                    }
+                } else {
+                    // Fallback für unbekannte Checks: Standard-Positive-Logik
+                    if ( $status === false ) {
+                        $issues[] = "System: {$check} Problem";
+                    }
                 }
             }
         }
         
+        // Gesamtstatus berechnen
         $health_data['overall_status'] = [
             'healthy' => empty( $issues ),
             'issues_count' => count( $issues ),
             'issues' => $issues
         ];
+        
+        // Debug-Information für Entwicklung
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            $health_data['debug_info'] = [
+                'total_checks' => count( $health_data['system_health'] ?? [] ),
+                'failed_checks' => count( $issues ),
+                'check_details' => $health_data['system_health'] ?? []
+            ];
+        }
         
         wp_send_json_success( $health_data );
         
@@ -848,6 +934,41 @@ function csv_import_system_health_handler() {
         ]);
     }
 }
+
+
+/**
+ * Health-Check Result Struktur für API-Dokumentation:
+ * 
+ * @return array {
+ *     @type bool   $memory_ok         PHP Memory ausreichend (true = OK)
+ *     @type bool   $time_ok           Execution Time ausreichend (true = OK) 
+ *     @type bool   $disk_space_ok     Disk Space ausreichend (true = OK)
+ *     @type bool   $permissions_ok    File Permissions OK (true = OK)
+ *     @type bool   $php_version_ok    PHP Version kompatibel (true = OK)
+ *     @type bool   $curl_ok           cURL verfügbar (true = OK)
+ *     @type bool   $wp_version_ok     WordPress Version kompatibel (true = OK)
+ *     @type bool   $import_locks      Import-Locks vorhanden (false = OK, true = Problem)
+ *     @type bool   $stuck_processes   Hängende Prozesse vorhanden (false = OK, true = Problem)
+ * }
+ */
+
+/**
+ * PROFESSIONELLE ALTERNATIVE: Könnte auch über Interface abstrahiert werden
+ */
+interface HealthCheckInterface {
+    public function getName(): string;
+    public function check(): bool;
+    public function isNegativeCheck(): bool; // true wenn false = gut
+    public function getDescription(): string;
+}
+
+/**
+ * Aber für WordPress-Plugin-Kontext ist die obige Lösung optimal:
+ * - Keine Überarchitektur
+ * - Klare, dokumentierte Semantik  
+ * - Einfach erweiterbar
+ * - Rückwärtskompatibel
+ */
 
 // ===================================================================
 // HILFSFUNKTIONEN FÜR AJAX-HANDLER
