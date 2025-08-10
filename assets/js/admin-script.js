@@ -1,6 +1,6 @@
 /**
- * CSV Import Pro Admin JavaScript - Komplett überarbeitete Version 8.5
- * Mit vollständiger Scheduler-Integration und robuster Fehlerbehandlung
+ * CSV Import Pro Admin JavaScript - Version 8.5 FIXED
+ * Korrigierte fehlende checkSystemHealth Methode
  */
 
 // ===================================================================
@@ -269,7 +269,582 @@ window.csvImportCheckHandlers = function() {
         this.debug.debug('Prüfe AJAX-Handler-Verfügbarkeit');
         
         this.performAjaxRequest({
-            action: 'csv_import_check_handlers',
+            action: 'csv_import_get_progress_extended',
+            timeout: 10000
+        })
+        .done((response) => {
+            if (response.success) {
+                this.handleProgressUpdate(response.data);
+            } else {
+                this.debug.warn('Progress-Update fehlgeschlagen:', response);
+            }
+        })
+        .fail(() => {
+            this.debug.debug('Progress-AJAX fehlgeschlagen (wird ignoriert)');
+        });
+    };
+
+    /**
+     * Progress-Update verarbeiten (erweitert)
+     */
+    CSVImportAdmin.handleProgressUpdate = function(progressData) {
+        if (!progressData) return;
+
+        const isRunning = progressData.running || false;
+        const percent = progressData.percent || 0;
+        const message = progressData.message || '';
+
+        // Status aktualisieren
+        if (this.status.importRunning !== isRunning) {
+            this.status.importRunning = isRunning;
+            this.updateUIState();
+        }
+
+        // Progress-Bar aktualisieren
+        if (this.elements.progressBar.length) {
+            this.elements.progressBar.css('width', percent + '%');
+            this.elements.progressBar.attr('aria-valuenow', percent);
+        }
+
+        // Progress-Notice aktualisieren
+        if (this.elements.progressNotice.length) {
+            if (isRunning) {
+                this.elements.progressNotice.show();
+                this.elements.progressNotice.find('.progress-message').text(message);
+                
+                // ETA anzeigen falls verfügbar
+                if (progressData.eta_human) {
+                    this.elements.progressNotice.find('.progress-eta').text(`ETA: ${progressData.eta_human}`);
+                }
+            } else {
+                this.elements.progressNotice.hide();
+                this.stopProgressUpdates();
+            }
+        }
+
+        // Memory-Warning bei hohem Verbrauch
+        if (progressData.memory_usage && progressData.memory_peak) {
+            const memoryMB = Math.round(progressData.memory_usage / 1024 / 1024);
+            const peakMB = Math.round(progressData.memory_peak / 1024 / 1024);
+            
+            if (memoryMB > 200) { // 200MB Warnung
+                this.debug.warn(`Hoher Memory-Verbrauch beim Import: ${memoryMB}MB (Peak: ${peakMB}MB)`);
+            }
+        }
+
+        // Import-Status verfolgen
+        if (!isRunning && this.status.importRunning) {
+            this.debug.log('Import abgeschlossen laut Progress-Update');
+            this.status.importRunning = false;
+            this.setImportButtonsState(false);
+        }
+    };
+
+    // ===================================================================
+    // VALIDATION-FUNKTIONEN (ERWEITERT)
+    // ===================================================================
+
+    /**
+     * Validierungsergebnis verarbeiten (erweitert)
+     */
+    CSVImportAdmin.handleValidationResult = function(response, type) {
+        if (!response) {
+            this.showTestResult('Keine Antwort vom Server erhalten', false);
+            return;
+        }
+
+        const data = response.success ? response.data : (response.data || {});
+        const message = data.message || (response.success ? 'Validierung erfolgreich' : 'Validierung fehlgeschlagen');
+
+        // Test-Ergebnis anzeigen
+        this.showTestResult(message, response.success);
+
+        // Beispieldaten anzeigen (nur bei erfolgreicher CSV-Validierung)
+        if (response.success && data.columns && data.sample_data && type !== 'config') {
+            this.showSampleData(data.columns, data.sample_data);
+        } else {
+            this.clearSampleData();
+        }
+
+        // Erweiterte Informationen loggen
+        this.debug.log(`Validierung ${type} abgeschlossen:`, {
+            success: response.success,
+            rows: data.rows,
+            columns: data.columns ? data.columns.length : 0,
+            delimiter: data.delimiter,
+            file_size: data.file_size
+        });
+    };
+
+    /**
+     * Validierungsfehler behandeln (erweitert)
+     */
+    CSVImportAdmin.handleValidationError = function(operation, error, xhr) {
+        this.debug.error(`${operation} fehlgeschlagen`, {
+            error: error,
+            status: xhr ? xhr.status : 'unknown',
+            response: xhr ? xhr.responseText : 'no response'
+        });
+
+        let errorMessage = `${operation} fehlgeschlagen`;
+        
+        if (xhr && xhr.status) {
+            if (xhr.status === 0) {
+                errorMessage += ': Netzwerkfehler - Internetverbindung prüfen';
+            } else if (xhr.status >= 500) {
+                errorMessage += ': Server-Fehler - Administrator kontaktieren';
+            } else if (xhr.status === 403) {
+                errorMessage += ': Keine Berechtigung - Anmeldung prüfen';
+            } else if (xhr.status === 404) {
+                errorMessage += ': AJAX-Handler nicht gefunden - Plugin-Installation prüfen';
+            } else {
+                errorMessage += `: HTTP ${xhr.status}`;
+            }
+        } else {
+            errorMessage += ': ' + (error || 'Unbekannter Fehler');
+        }
+
+        this.showTestResult(errorMessage, false);
+        this.clearSampleData();
+    };
+
+    /**
+     * Import-Ergebnis verarbeiten (erweitert)
+     */
+    CSVImportAdmin.handleImportResult = function(response, source) {
+        if (response.success) {
+            const processed = response.data.processed || 0;
+            const total = response.data.total || 0;
+            const errors = response.data.errors || 0;
+
+            let message = `Import erfolgreich abgeschlossen!\n\n`;
+            message += `Verarbeitet: ${processed} von ${total} Einträgen\n`;
+            if (errors > 0) {
+                message += `Fehler: ${errors}\n`;
+            }
+            
+            // Performance-Info hinzufügen falls verfügbar
+            if (response.data.execution_time) {
+                message += `Ausführungszeit: ${response.data.execution_time}s\n`;
+            }
+            
+            message += `\nSeite wird neu geladen...`;
+
+            this.showAlert(message, 'success');
+            
+            // Nach kurzem Delay Seite neu laden
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+
+        } else {
+            const errorMsg = response.data?.message || response.message || 'Unbekannter Import-Fehler';
+            this.showAlert(`Import fehlgeschlagen:\n${errorMsg}`, 'error');
+        }
+
+        this.debug.log(`Import ${source} beendet:`, response);
+    };
+
+    /**
+     * Import-Fehler behandeln (erweitert)
+     */
+    CSVImportAdmin.handleImportError = function(source, error, xhr) {
+        this.debug.error(`Import ${source} fehlgeschlagen`, {
+            error: error,
+            status: xhr?.status,
+            response: xhr?.responseText
+        });
+
+        let errorMessage = `Import fehlgeschlagen`;
+        
+        if (xhr?.status === 0) {
+            errorMessage += `\n\nNetzwerkfehler - möglicherweise ist der Import noch aktiv.\nBitte warten oder Reset durchführen.`;
+        } else if (xhr?.status >= 500) {
+            errorMessage += `\n\nServer-Fehler. Import möglicherweise abgebrochen.\nBitte Logs prüfen oder Administrator kontaktieren.`;
+        } else if (xhr?.status === 413) {
+            errorMessage += `\n\nDatei zu groß für Server.\nBitte CSV-Datei verkleinern oder Server-Limits erhöhen.`;
+        } else if (xhr?.status === 408) {
+            errorMessage += `\n\nTimeout beim Import.\nBitte kleinere Batch-Größe verwenden.`;
+        } else {
+            errorMessage += `\n\n${error || 'Unbekannter Fehler'}`;
+        }
+
+        this.showAlert(errorMessage, 'error');
+    };
+
+    // ===================================================================
+    // UI-HILFSFUNKTIONEN (ERWEITERT)
+    // ===================================================================
+
+    /**
+     * Test-Progress anzeigen (erweitert)
+     */
+    CSVImportAdmin.showTestProgress = function(type, message) {
+        if (!this.elements.resultsContainer.length) return;
+
+        const progressHtml = `
+            <div class="test-result test-progress">
+                <div class="progress-spinner"></div>
+                🔄 ${message}
+            </div>
+        `;
+        this.elements.resultsContainer.html(progressHtml);
+    };
+
+    /**
+     * Test-Ergebnis anzeigen (erweitert)
+     */
+    CSVImportAdmin.showTestResult = function(message, success) {
+        if (!this.elements.resultsContainer.length) return;
+
+        const resultClass = success ? 'test-success' : 'test-error';
+        const icon = success ? '✅' : '❌';
+        const timestamp = new Date().toLocaleTimeString();
+        
+        const resultHtml = `
+            <div class="test-result ${resultClass}">
+                ${icon} ${message}
+                <div class="test-timestamp">${timestamp}</div>
+            </div>
+        `;
+        this.elements.resultsContainer.html(resultHtml);
+    };
+
+    /**
+     * Sample-Data-Progress anzeigen
+     */
+    CSVImportAdmin.showSampleDataProgress = function(message) {
+        if (!this.elements.sampleDataContainer.length) return;
+
+        const progressHtml = `<div class="test-result test-progress">🔄 ${message}</div>`;
+        this.elements.sampleDataContainer.html(progressHtml);
+    };
+
+    /**
+     * Beispieldaten anzeigen (erweitert)
+     */
+    CSVImportAdmin.showSampleData = function(columns, sampleData) {
+        if (!this.elements.sampleDataContainer.length || !columns || !sampleData) return;
+
+        try {
+            // Maximale Anzahl anzuzeigender Spalten (für bessere Darstellung)
+            const maxCols = 5;
+            const displayColumns = columns.slice(0, maxCols);
+            const hasMoreCols = columns.length > maxCols;
+
+            let tableHtml = `
+                <div class="csv-sample-data-wrapper">
+                    <div class="sample-data-header">
+                        <h4>📊 Beispieldaten</h4>
+                        <span class="sample-info">${sampleData.length} Zeilen, ${columns.length} Spalten</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="wp-list-table widefat striped sample-data-table">
+                            <thead>
+                                <tr>
+                                    ${displayColumns.map(col => `<th>${this.escapeHtml(col)}</th>`).join('')}
+                                    ${hasMoreCols ? '<th class="more-cols">...</th>' : ''}
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            sampleData.forEach((row, index) => {
+                if (Array.isArray(row)) {
+                    const displayRow = row.slice(0, maxCols);
+                    tableHtml += `
+                        <tr>
+                            ${displayRow.map(cell => `<td>${this.escapeHtml(String(cell || ''))}</td>`).join('')}
+                            ${hasMoreCols ? '<td class="more-cols">...</td>' : ''}
+                        </tr>
+                    `;
+                }
+            });
+
+            tableHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            if (hasMoreCols) {
+                tableHtml += `<p class="description">Zeige ${maxCols} von ${columns.length} Spalten zur Vorschau</p>`;
+            }
+
+            this.elements.sampleDataContainer.html(tableHtml);
+
+        } catch (error) {
+            this.debug.error('Fehler beim Anzeigen der Beispieldaten:', error);
+            this.elements.sampleDataContainer.html('<div class="test-result test-error">❌ Fehler beim Laden der Beispieldaten</div>');
+        }
+    };
+
+    /**
+     * Beispieldaten löschen
+     */
+    CSVImportAdmin.clearSampleData = function() {
+        if (this.elements.sampleDataContainer.length) {
+            this.elements.sampleDataContainer.empty();
+        }
+    };
+
+    /**
+     * HTML escapen für Sicherheit
+     */
+    CSVImportAdmin.escapeHtml = function(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    };
+
+    /**
+     * Globalen Fehler anzeigen (erweitert)
+     */
+    CSVImportAdmin.showGlobalError = function(message) {
+        const errorHtml = `
+            <div class="notice notice-error is-dismissible global-csv-error">
+                <p><strong>CSV Import Pro:</strong> ${message}</p>
+                <button type="button" class="notice-dismiss" onclick="jQuery('.global-csv-error').remove();">
+                    <span class="screen-reader-text">Dismiss this notice.</span>
+                </button>
+            </div>
+        `;
+        
+        if ($('.wrap').length) {
+            $('.wrap').prepend(errorHtml);
+        } else {
+            $('body').prepend(errorHtml);
+        }
+        
+        // Auto-Remove nach 10 Sekunden
+        setTimeout(() => {
+            $('.global-csv-error').fadeOut();
+        }, 10000);
+    };
+
+    /**
+     * Form-Field-Validierung in Echtzeit
+     */
+    CSVImportAdmin.validateFormField = function($field) {
+        const value = $field.val();
+        const fieldType = $field.attr('type') || $field.prop('tagName').toLowerCase();
+        const fieldName = $field.attr('name') || $field.attr('id');
+        
+        // Entferne vorherige Validierungsklassen
+        $field.removeClass('validation-error validation-success');
+        
+        let isValid = true;
+        let errorMessage = '';
+        
+        // Validierung basierend auf Feldtyp
+        switch(fieldType) {
+            case 'url':
+                if (value && !this.isValidUrl(value)) {
+                    isValid = false;
+                    errorMessage = 'Ungültige URL-Format';
+                }
+                break;
+            case 'number':
+                if (value && isNaN(value)) {
+                    isValid = false;
+                    errorMessage = 'Muss eine Zahl sein';
+                }
+                break;
+            case 'email':
+                if (value && !this.isValidEmail(value)) {
+                    isValid = false;
+                    errorMessage = 'Ungültige E-Mail-Adresse';
+                }
+                break;
+        }
+        
+        // Required-Felder prüfen
+        if ($field.prop('required') && !value) {
+            isValid = false;
+            errorMessage = 'Dieses Feld ist erforderlich';
+        }
+        
+        // CSV-spezifische Validierungen
+        if (fieldName && fieldName.includes('csv_import_')) {
+            if (fieldName.includes('_path') && value) {
+                // Pfad-Validierung
+                if (value.includes('..') || value.startsWith('/')) {
+                    isValid = false;
+                    errorMessage = 'Unsicherer Pfad erkannt';
+                }
+            }
+        }
+        
+        // Validierungsklasse hinzufügen
+        $field.addClass(isValid ? 'validation-success' : 'validation-error');
+        
+        // Error-Message anzeigen/verstecken
+        const $errorMsg = $field.siblings('.validation-message');
+        if (!isValid && errorMessage) {
+            if ($errorMsg.length) {
+                $errorMsg.text(errorMessage).show();
+            } else {
+                $field.after(`<span class="validation-message error">${errorMessage}</span>`);
+            }
+        } else {
+            $errorMsg.hide();
+        }
+        
+        return isValid;
+    };
+
+    /**
+     * URL-Validierung
+     */
+    CSVImportAdmin.isValidUrl = function(string) {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    /**
+     * E-Mail-Validierung
+     */
+    CSVImportAdmin.isValidEmail = function(email) {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    };
+
+    /**
+     * Health-UI aktualisieren
+     */
+    CSVImportAdmin.updateHealthUI = function(health) {
+        if (!health) return;
+        
+        // Gesamtstatus-Indikator aktualisieren
+        $('.csv-health-overall').each(function() {
+            const $element = $(this);
+            const isHealthy = health.overall_status && health.overall_status.healthy;
+            
+            $element.removeClass('health-good health-warning health-error');
+            $element.addClass(isHealthy ? 'health-good' : 'health-warning');
+            
+            const statusText = isHealthy ? 'System gesund' : `${health.overall_status.issues_count} Probleme`;
+            $element.find('.health-text').text(statusText);
+        });
+        
+        // Einzelne Health-Checks aktualisieren
+        if (health.system_health) {
+            Object.keys(health.system_health).forEach(check => {
+                const status = health.system_health[check];
+                $(`.health-check-${check}`).each(function() {
+                    const $element = $(this);
+                    $element.removeClass('check-ok check-error');
+                    $element.addClass(status ? 'check-ok' : 'check-error');
+                });
+            });
+        }
+    };
+
+    // ===================================================================
+    // GLOBALE ERROR-HANDLER (ERWEITERT)
+    // ===================================================================
+
+    /**
+     * Globaler AJAX-Error-Handler
+     */
+    CSVImportAdmin.handleGlobalAjaxError = function(event, xhr, settings, error) {
+        this.state.performanceMetrics.errors++;
+        
+        this.debug.error('Globaler AJAX-Fehler erkannt', {
+            url: settings.url,
+            action: settings.data?.action,
+            error: error,
+            status: xhr.status,
+            response: xhr.responseText?.substring(0, 200) // Nur erste 200 Zeichen
+        });
+        
+        // Bei kritischen Fehlern Health-Check triggern
+        if (xhr.status >= 500) {
+            setTimeout(() => {
+                if (typeof this.systemHealthCheck === 'function') {
+                    this.systemHealthCheck();
+                }
+            }, 5000);
+        }
+    };
+
+    // ===================================================================
+    // ÖFFENTLICHE API & ABSCHLUSS
+    // ===================================================================
+
+    // CSVImportAdmin global verfügbar machen
+    window.CSVImportAdmin = CSVImportAdmin;
+
+    // Version und Debug-Informationen
+    CSVImportAdmin.getVersion = function() {
+        return this.version;
+    };
+
+    CSVImportAdmin.getStatus = function() {
+        return {
+            version: this.version,
+            initialized: this.state.initialized,
+            status: this.status,
+            performanceMetrics: this.state.performanceMetrics,
+            lastError: this.state.lastError
+        };
+    };
+
+    CSVImportAdmin.getDebugInfo = function() {
+        return {
+            version: this.version,
+            elements: Object.keys(this.elements).reduce((acc, key) => {
+                acc[key] = this.elements[key].length;
+                return acc;
+            }, {}),
+            status: this.status,
+            config: this.config,
+            state: this.state,
+            metrics: this.state.performanceMetrics
+        };
+    };
+
+    // Erfolgreiche Ladung loggen
+    CSVImportAdmin.debug.log(`CSV Import Admin Script geladen (Version ${CSVImportAdmin.version})`);
+
+})(jQuery);
+
+// ===================================================================
+// LEGACY-SUPPORT & GLOBALE FUNKTIONEN
+// ===================================================================
+
+// Backup für alte globale Funktionen (falls Templates diese noch verwenden)
+if (typeof window.csvImportTestConfig === 'undefined') {
+    window.csvImportTestConfig = function() {
+        console.warn('Legacy-Funktion aufgerufen - Plugin möglicherweise nicht korrekt initialisiert');
+        if (window.CSVImportAdmin && window.CSVImportAdmin.testConfiguration) {
+            window.CSVImportAdmin.testConfiguration();
+        }
+    };
+}
+
+// Debug-Konsole-Befehle für Entwickler
+if (typeof console !== 'undefined') {
+    window.csvDebug = {
+        status: () => window.CSVImportAdmin?.getStatus(),
+        info: () => window.CSVImportAdmin?.getDebugInfo(),
+        test: () => window.CSVImportAdmin?.testConfiguration(),
+        scheduler: () => window.CSVImportAdmin?.getSchedulerStatus(),
+        health: () => window.CSVImportAdmin?.systemHealthCheck(),
+        reset: () => window.CSVImportAdmin?.emergencyReset(),
+        handlers: () => window.CSVImportAdmin?.checkHandlers()
+    };
+}
+
+// Performance-Marker setzen
+if (window.performance && window.performance.mark) {
+    window.performance.mark('csv-import-admin-script-loaded');
+}csv_import_check_handlers',
             timeout: 10000
         })
         .done((response) => {
@@ -414,7 +989,7 @@ window.csvImportCheckHandlers = function() {
     };
 
     /**
-     * Status-Initialisierung - Erweitert
+     * Status-Initialisierung - Erweitert (KORRIGIERT)
      */
     CSVImportAdmin.initializeStatus = function() {
         this.debug.debug('Initialisiere Status');
@@ -429,7 +1004,13 @@ window.csvImportCheckHandlers = function() {
         
         // Initiale Checks
         this.updateConnectionStatus();
-        this.checkSystemHealth();
+        
+        // KORRIGIERT: checkSystemHealth() durch systemHealthCheck() ersetzt
+        if (typeof this.systemHealthCheck === 'function') {
+            this.systemHealthCheck();
+        } else {
+            this.debug.warn('System Health Check nicht verfügbar');
+        }
     };
 
     /**
@@ -447,7 +1028,9 @@ window.csvImportCheckHandlers = function() {
         
         // Periodische System-Health-Checks
         setInterval(() => {
-            this.checkSystemHealth();
+            if (typeof this.systemHealthCheck === 'function') {
+                this.systemHealthCheck();
+            }
         }, this.config.healthCheckInterval);
     };
 
@@ -1629,577 +2212,4 @@ window.csvImportCheckHandlers = function() {
         this.status.lastProgressUpdate = now;
         
         this.performAjaxRequest({
-            action: 'csv_import_get_progress_extended',
-            timeout: 10000
-        })
-        .done((response) => {
-            if (response.success) {
-                this.handleProgressUpdate(response.data);
-            } else {
-                this.debug.warn('Progress-Update fehlgeschlagen:', response);
-            }
-        })
-        .fail(() => {
-            this.debug.debug('Progress-AJAX fehlgeschlagen (wird ignoriert)');
-        });
-    };
-
-    /**
-     * Progress-Update verarbeiten (erweitert)
-     */
-    CSVImportAdmin.handleProgressUpdate = function(progressData) {
-        if (!progressData) return;
-
-        const isRunning = progressData.running || false;
-        const percent = progressData.percent || 0;
-        const message = progressData.message || '';
-
-        // Status aktualisieren
-        if (this.status.importRunning !== isRunning) {
-            this.status.importRunning = isRunning;
-            this.updateUIState();
-        }
-
-        // Progress-Bar aktualisieren
-        if (this.elements.progressBar.length) {
-            this.elements.progressBar.css('width', percent + '%');
-            this.elements.progressBar.attr('aria-valuenow', percent);
-        }
-
-        // Progress-Notice aktualisieren
-        if (this.elements.progressNotice.length) {
-            if (isRunning) {
-                this.elements.progressNotice.show();
-                this.elements.progressNotice.find('.progress-message').text(message);
-                
-                // ETA anzeigen falls verfügbar
-                if (progressData.eta_human) {
-                    this.elements.progressNotice.find('.progress-eta').text(`ETA: ${progressData.eta_human}`);
-                }
-            } else {
-                this.elements.progressNotice.hide();
-                this.stopProgressUpdates();
-            }
-        }
-
-        // Memory-Warning bei hohem Verbrauch
-        if (progressData.memory_usage && progressData.memory_peak) {
-            const memoryMB = Math.round(progressData.memory_usage / 1024 / 1024);
-            const peakMB = Math.round(progressData.memory_peak / 1024 / 1024);
-            
-            if (memoryMB > 200) { // 200MB Warnung
-                this.debug.warn(`Hoher Memory-Verbrauch beim Import: ${memoryMB}MB (Peak: ${peakMB}MB)`);
-            }
-        }
-
-        // Import-Status verfolgen
-        if (!isRunning && this.status.importRunning) {
-            this.debug.log('Import abgeschlossen laut Progress-Update');
-            this.status.importRunning = false;
-            this.setImportButtonsState(false);
-        }
-    };
-
-    // ===================================================================
-    // VALIDATION-FUNKTIONEN (ERWEITERT)
-    // ===================================================================
-
-    /**
-     * Validierungsergebnis verarbeiten (erweitert)
-     */
-    CSVImportAdmin.handleValidationResult = function(response, type) {
-        if (!response) {
-            this.showTestResult('Keine Antwort vom Server erhalten', false);
-            return;
-        }
-
-        const data = response.success ? response.data : (response.data || {});
-        const message = data.message || (response.success ? 'Validierung erfolgreich' : 'Validierung fehlgeschlagen');
-
-        // Test-Ergebnis anzeigen
-        this.showTestResult(message, response.success);
-
-        // Beispieldaten anzeigen (nur bei erfolgreicher CSV-Validierung)
-        if (response.success && data.columns && data.sample_data && type !== 'config') {
-            this.showSampleData(data.columns, data.sample_data);
-        } else {
-            this.clearSampleData();
-        }
-
-        // Erweiterte Informationen loggen
-        this.debug.log(`Validierung ${type} abgeschlossen:`, {
-            success: response.success,
-            rows: data.rows,
-            columns: data.columns ? data.columns.length : 0,
-            delimiter: data.delimiter,
-            file_size: data.file_size
-        });
-    };
-
-    /**
-     * Validierungsfehler behandeln (erweitert)
-     */
-    CSVImportAdmin.handleValidationError = function(operation, error, xhr) {
-        this.debug.error(`${operation} fehlgeschlagen`, {
-            error: error,
-            status: xhr ? xhr.status : 'unknown',
-            response: xhr ? xhr.responseText : 'no response'
-        });
-
-        let errorMessage = `${operation} fehlgeschlagen`;
-        
-        if (xhr && xhr.status) {
-            if (xhr.status === 0) {
-                errorMessage += ': Netzwerkfehler - Internetverbindung prüfen';
-            } else if (xhr.status >= 500) {
-                errorMessage += ': Server-Fehler - Administrator kontaktieren';
-            } else if (xhr.status === 403) {
-                errorMessage += ': Keine Berechtigung - Anmeldung prüfen';
-            } else if (xhr.status === 404) {
-                errorMessage += ': AJAX-Handler nicht gefunden - Plugin-Installation prüfen';
-            } else {
-                errorMessage += `: HTTP ${xhr.status}`;
-            }
-        } else {
-            errorMessage += ': ' + (error || 'Unbekannter Fehler');
-        }
-
-        this.showTestResult(errorMessage, false);
-        this.clearSampleData();
-    };
-
-    /**
-     * Import-Ergebnis verarbeiten (erweitert)
-     */
-    CSVImportAdmin.handleImportResult = function(response, source) {
-        if (response.success) {
-            const processed = response.data.processed || 0;
-            const total = response.data.total || 0;
-            const errors = response.data.errors || 0;
-
-            let message = `Import erfolgreich abgeschlossen!\n\n`;
-            message += `Verarbeitet: ${processed} von ${total} Einträgen\n`;
-            if (errors > 0) {
-                message += `Fehler: ${errors}\n`;
-            }
-            
-            // Performance-Info hinzufügen falls verfügbar
-            if (response.data.execution_time) {
-                message += `Ausführungszeit: ${response.data.execution_time}s\n`;
-            }
-            
-            message += `\nSeite wird neu geladen...`;
-
-            this.showAlert(message, 'success');
-            
-            // Nach kurzem Delay Seite neu laden
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
-
-        } else {
-            const errorMsg = response.data?.message || response.message || 'Unbekannter Import-Fehler';
-            this.showAlert(`Import fehlgeschlagen:\n${errorMsg}`, 'error');
-        }
-
-        this.debug.log(`Import ${source} beendet:`, response);
-    };
-
-    /**
-     * Import-Fehler behandeln (erweitert)
-     */
-    CSVImportAdmin.handleImportError = function(source, error, xhr) {
-        this.debug.error(`Import ${source} fehlgeschlagen`, {
-            error: error,
-            status: xhr?.status,
-            response: xhr?.responseText
-        });
-
-        let errorMessage = `Import fehlgeschlagen`;
-        
-        if (xhr?.status === 0) {
-            errorMessage += `\n\nNetzwerkfehler - möglicherweise ist der Import noch aktiv.\nBitte warten oder Reset durchführen.`;
-        } else if (xhr?.status >= 500) {
-            errorMessage += `\n\nServer-Fehler. Import möglicherweise abgebrochen.\nBitte Logs prüfen oder Administrator kontaktieren.`;
-        } else if (xhr?.status === 413) {
-            errorMessage += `\n\nDatei zu groß für Server.\nBitte CSV-Datei verkleinern oder Server-Limits erhöhen.`;
-        } else if (xhr?.status === 408) {
-            errorMessage += `\n\nTimeout beim Import.\nBitte kleinere Batch-Größe verwenden.`;
-        } else {
-            errorMessage += `\n\n${error || 'Unbekannter Fehler'}`;
-        }
-
-        this.showAlert(errorMessage, 'error');
-    };
-
-    // ===================================================================
-    // UI-HILFSFUNKTIONEN (ERWEITERT)
-    // ===================================================================
-
-    /**
-     * Test-Progress anzeigen (erweitert)
-     */
-    CSVImportAdmin.showTestProgress = function(type, message) {
-        if (!this.elements.resultsContainer.length) return;
-
-        const progressHtml = `
-            <div class="test-result test-progress">
-                <div class="progress-spinner"></div>
-                🔄 ${message}
-            </div>
-        `;
-        this.elements.resultsContainer.html(progressHtml);
-    };
-
-    /**
-     * Test-Ergebnis anzeigen (erweitert)
-     */
-    CSVImportAdmin.showTestResult = function(message, success) {
-        if (!this.elements.resultsContainer.length) return;
-
-        const resultClass = success ? 'test-success' : 'test-error';
-        const icon = success ? '✅' : '❌';
-        const timestamp = new Date().toLocaleTimeString();
-        
-        const resultHtml = `
-            <div class="test-result ${resultClass}">
-                ${icon} ${message}
-                <div class="test-timestamp">${timestamp}</div>
-            </div>
-        `;
-        this.elements.resultsContainer.html(resultHtml);
-    };
-
-    /**
-     * Sample-Data-Progress anzeigen
-     */
-    CSVImportAdmin.showSampleDataProgress = function(message) {
-        if (!this.elements.sampleDataContainer.length) return;
-
-        const progressHtml = `<div class="test-result test-progress">🔄 ${message}</div>`;
-        this.elements.sampleDataContainer.html(progressHtml);
-    };
-
-    /**
-     * Beispieldaten anzeigen (erweitert)
-     */
-    CSVImportAdmin.showSampleData = function(columns, sampleData) {
-        if (!this.elements.sampleDataContainer.length || !columns || !sampleData) return;
-
-        try {
-            // Maximale Anzahl anzuzeigender Spalten (für bessere Darstellung)
-            const maxCols = 5;
-            const displayColumns = columns.slice(0, maxCols);
-            const hasMoreCols = columns.length > maxCols;
-
-            let tableHtml = `
-                <div class="csv-sample-data-wrapper">
-                    <div class="sample-data-header">
-                        <h4>📊 Beispieldaten</h4>
-                        <span class="sample-info">${sampleData.length} Zeilen, ${columns.length} Spalten</span>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="wp-list-table widefat striped sample-data-table">
-                            <thead>
-                                <tr>
-                                    ${displayColumns.map(col => `<th>${this.escapeHtml(col)}</th>`).join('')}
-                                    ${hasMoreCols ? '<th class="more-cols">...</th>' : ''}
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-
-            sampleData.forEach((row, index) => {
-                if (Array.isArray(row)) {
-                    const displayRow = row.slice(0, maxCols);
-                    tableHtml += `
-                        <tr>
-                            ${displayRow.map(cell => `<td>${this.escapeHtml(String(cell || ''))}</td>`).join('')}
-                            ${hasMoreCols ? '<td class="more-cols">...</td>' : ''}
-                        </tr>
-                    `;
-                }
-            });
-
-            tableHtml += `
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-
-            if (hasMoreCols) {
-                tableHtml += `<p class="description">Zeige ${maxCols} von ${columns.length} Spalten zur Vorschau</p>`;
-            }
-
-            this.elements.sampleDataContainer.html(tableHtml);
-
-        } catch (error) {
-            this.debug.error('Fehler beim Anzeigen der Beispieldaten:', error);
-            this.elements.sampleDataContainer.html('<div class="test-result test-error">❌ Fehler beim Laden der Beispieldaten</div>');
-        }
-    };
-
-    /**
-     * Beispieldaten löschen
-     */
-    CSVImportAdmin.clearSampleData = function() {
-        if (this.elements.sampleDataContainer.length) {
-            this.elements.sampleDataContainer.empty();
-        }
-    };
-
-    /**
-     * HTML escapen für Sicherheit
-     */
-    CSVImportAdmin.escapeHtml = function(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    };
-
-    /**
-     * Globalen Fehler anzeigen (erweitert)
-     */
-    CSVImportAdmin.showGlobalError = function(message) {
-        const errorHtml = `
-            <div class="notice notice-error is-dismissible global-csv-error">
-                <p><strong>CSV Import Pro:</strong> ${message}</p>
-                <button type="button" class="notice-dismiss" onclick="jQuery('.global-csv-error').remove();">
-                    <span class="screen-reader-text">Dismiss this notice.</span>
-                </button>
-            </div>
-        `;
-        
-        if ($('.wrap').length) {
-            $('.wrap').prepend(errorHtml);
-        } else {
-            $('body').prepend(errorHtml);
-        }
-        
-        // Auto-Remove nach 10 Sekunden
-        setTimeout(() => {
-            $('.global-csv-error').fadeOut();
-        }, 10000);
-    };
-
-    /**
-     * Form-Field-Validierung in Echtzeit
-     */
-    CSVImportAdmin.validateFormField = function($field) {
-        const value = $field.val();
-        const fieldType = $field.attr('type') || $field.prop('tagName').toLowerCase();
-        const fieldName = $field.attr('name') || $field.attr('id');
-        
-        // Entferne vorherige Validierungsklassen
-        $field.removeClass('validation-error validation-success');
-        
-        let isValid = true;
-        let errorMessage = '';
-        
-        // Validierung basierend auf Feldtyp
-        switch(fieldType) {
-            case 'url':
-                if (value && !this.isValidUrl(value)) {
-                    isValid = false;
-                    errorMessage = 'Ungültige URL-Format';
-                }
-                break;
-            case 'number':
-                if (value && isNaN(value)) {
-                    isValid = false;
-                    errorMessage = 'Muss eine Zahl sein';
-                }
-                break;
-            case 'email':
-                if (value && !this.isValidEmail(value)) {
-                    isValid = false;
-                    errorMessage = 'Ungültige E-Mail-Adresse';
-                }
-                break;
-        }
-        
-        // Required-Felder prüfen
-        if ($field.prop('required') && !value) {
-            isValid = false;
-            errorMessage = 'Dieses Feld ist erforderlich';
-        }
-        
-        // CSV-spezifische Validierungen
-        if (fieldName && fieldName.includes('csv_import_')) {
-            if (fieldName.includes('_path') && value) {
-                // Pfad-Validierung
-                if (value.includes('..') || value.startsWith('/')) {
-                    isValid = false;
-                    errorMessage = 'Unsicherer Pfad erkannt';
-                }
-            }
-        }
-        
-        // Validierungsklasse hinzufügen
-        $field.addClass(isValid ? 'validation-success' : 'validation-error');
-        
-        // Error-Message anzeigen/verstecken
-        const $errorMsg = $field.siblings('.validation-message');
-        if (!isValid && errorMessage) {
-            if ($errorMsg.length) {
-                $errorMsg.text(errorMessage).show();
-            } else {
-                $field.after(`<span class="validation-message error">${errorMessage}</span>`);
-            }
-        } else {
-            $errorMsg.hide();
-        }
-        
-        return isValid;
-    };
-
-    /**
-     * URL-Validierung
-     */
-    CSVImportAdmin.isValidUrl = function(string) {
-        try {
-            new URL(string);
-            return true;
-        } catch (_) {
-            return false;
-        }
-    };
-
-    /**
-     * E-Mail-Validierung
-     */
-    CSVImportAdmin.isValidEmail = function(email) {
-        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return re.test(email);
-    };
-
-    /**
-     * Health-UI aktualisieren
-     */
-    CSVImportAdmin.updateHealthUI = function(health) {
-        if (!health) return;
-        
-        // Gesamtstatus-Indikator aktualisieren
-        $('.csv-health-overall').each(function() {
-            const $element = $(this);
-            const isHealthy = health.overall_status && health.overall_status.healthy;
-            
-            $element.removeClass('health-good health-warning health-error');
-            $element.addClass(isHealthy ? 'health-good' : 'health-warning');
-            
-            const statusText = isHealthy ? 'System gesund' : `${health.overall_status.issues_count} Probleme`;
-            $element.find('.health-text').text(statusText);
-        });
-        
-        // Einzelne Health-Checks aktualisieren
-        if (health.system_health) {
-            Object.keys(health.system_health).forEach(check => {
-                const status = health.system_health[check];
-                $(`.health-check-${check}`).each(function() {
-                    const $element = $(this);
-                    $element.removeClass('check-ok check-error');
-                    $element.addClass(status ? 'check-ok' : 'check-error');
-                });
-            });
-        }
-    };
-
-    // ===================================================================
-    // GLOBALE ERROR-HANDLER (ERWEITERT)
-    // ===================================================================
-
-    /**
-     * Globaler AJAX-Error-Handler
-     */
-    CSVImportAdmin.handleGlobalAjaxError = function(event, xhr, settings, error) {
-        this.state.performanceMetrics.errors++;
-        
-        this.debug.error('Globaler AJAX-Fehler erkannt', {
-            url: settings.url,
-            action: settings.data?.action,
-            error: error,
-            status: xhr.status,
-            response: xhr.responseText?.substring(0, 200) // Nur erste 200 Zeichen
-        });
-        
-        // Bei kritischen Fehlern Health-Check triggern
-        if (xhr.status >= 500) {
-            setTimeout(() => {
-                this.checkSystemHealth();
-            }, 5000);
-        }
-    };
-
-    // ===================================================================
-    // ÖFFENTLICHE API & ABSCHLUSS
-    // ===================================================================
-
-    // CSVImportAdmin global verfügbar machen
-    window.CSVImportAdmin = CSVImportAdmin;
-
-    // Version und Debug-Informationen
-    CSVImportAdmin.getVersion = function() {
-        return this.version;
-    };
-
-    CSVImportAdmin.getStatus = function() {
-        return {
-            version: this.version,
-            initialized: this.state.initialized,
-            status: this.status,
-            performanceMetrics: this.state.performanceMetrics,
-            lastError: this.state.lastError
-        };
-    };
-
-    CSVImportAdmin.getDebugInfo = function() {
-        return {
-            version: this.version,
-            elements: Object.keys(this.elements).reduce((acc, key) => {
-                acc[key] = this.elements[key].length;
-                return acc;
-            }, {}),
-            status: this.status,
-            config: this.config,
-            state: this.state,
-            metrics: this.state.performanceMetrics
-        };
-    };
-
-    // Erfolgreiche Ladung loggen
-    CSVImportAdmin.debug.log(`CSV Import Admin Script geladen (Version ${CSVImportAdmin.version})`);
-
-})(jQuery);
-
-// ===================================================================
-// LEGACY-SUPPORT & GLOBALE FUNKTIONEN
-// ===================================================================
-
-// Backup für alte globale Funktionen (falls Templates diese noch verwenden)
-if (typeof window.csvImportTestConfig === 'undefined') {
-    window.csvImportTestConfig = function() {
-        console.warn('Legacy-Funktion aufgerufen - Plugin möglicherweise nicht korrekt initialisiert');
-        if (window.CSVImportAdmin && window.CSVImportAdmin.testConfiguration) {
-            window.CSVImportAdmin.testConfiguration();
-        }
-    };
-}
-
-// Debug-Konsole-Befehle für Entwickler
-if (typeof console !== 'undefined') {
-    window.csvDebug = {
-        status: () => window.CSVImportAdmin?.getStatus(),
-        info: () => window.CSVImportAdmin?.getDebugInfo(),
-        test: () => window.CSVImportAdmin?.testConfiguration(),
-        scheduler: () => window.CSVImportAdmin?.getSchedulerStatus(),
-        health: () => window.CSVImportAdmin?.systemHealthCheck(),
-        reset: () => window.CSVImportAdmin?.emergencyReset(),
-        handlers: () => window.CSVImportAdmin?.checkHandlers()
-    };
-}
-
-// Performance-Marker setzen
-if (window.performance && window.performance.mark) {
-    window.performance.mark('csv-import-admin-script-loaded');
-}
+            action: '
