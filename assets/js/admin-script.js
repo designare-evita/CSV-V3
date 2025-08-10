@@ -1735,7 +1735,7 @@ CSVImportAdmin.handleWindowFocus = function() {
     }
 
     this.checkConnection();
-    // this.systemHealthCheck(); // DEAKTIVIERT, UM STÄNDIGE POP-UPS ZU VERHINDERN
+    // Health-Check entfernt - verhindert störende Pop-ups
 };
 
     /**
