@@ -750,10 +750,10 @@ window.csvImportCheckHandlers = function() {
         this.setImportButtonsState(true, 'Import läuft...');
 
         // AJAX-Request
-        this.performAjaxRequest({
-            action: 'csv_import_start',
-            source: source
-        })
+this.performAjaxRequest({
+    action: 'csv_import_start',
+    source: source
+})
         .done((response) => {
             this.handleImportResult(response, source);
         })
