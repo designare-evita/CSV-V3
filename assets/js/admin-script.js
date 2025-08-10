@@ -404,24 +404,22 @@ window.csvImportCheckHandlers = function() {
     };
 
     /**
-     * Status-Initialisierung - Erweitert
-     */
+     * Status-Initialisierung - Erweitert */
     CSVImportAdmin.initializeStatus = function() {
-        this.debug.debug('Initialisiere Status');
-        
-        // Import-Status aus Server-Daten übernehmen
-        if (typeof csvImportAjax !== 'undefined') {
-            this.status.importRunning = csvImportAjax.import_running || false;
-        }
+    this.debug.debug('Initialisiere Status');
+    
+    // Import-Status aus Server-Daten übernehmen
+    if (typeof csvImportAjax !== 'undefined') {
+        this.status.importRunning = csvImportAjax.import_running || false;
+    }
 
-        // UI entsprechend dem Status anpassen
-        this.updateUIState();
-        
-        // Initiale Checks
-        this.updateConnectionStatus();
-        this.systemHealthCheck();
-    };
-
+    // UI entsprechend dem Status anpassen
+    this.updateUIState();
+    
+    // Initiale Checks
+    this.updateConnectionStatus();
+    // Initialer Health-Check entfernt - verhindert Pop-up beim Laden
+};
     /**
      * Auto-Updates starten
      */
