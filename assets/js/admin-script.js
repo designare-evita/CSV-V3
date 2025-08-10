@@ -429,7 +429,7 @@ window.csvImportCheckHandlers = function() {
         
         // Initiale Checks
         this.updateConnectionStatus();
-        this.checkSystemHealth();
+        this.systemHealthCheck();
     };
 
     /**
