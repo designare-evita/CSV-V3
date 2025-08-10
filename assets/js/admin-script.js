@@ -1704,8 +1704,8 @@ window.csvImportCheckHandlers = function() {
     // VALIDATION-FUNKTIONEN (ERWEITERT)
     // ===================================================================
 
-    /**
-     * Validierungsergebnis verarbeiten (erweitert)
+/**
+     * Validierungsergebnis verarbeiten (erweitert für Mapping)
      */
     CSVImportAdmin.handleValidationResult = function(response, type) {
         if (!response) {
@@ -1719,20 +1719,19 @@ window.csvImportCheckHandlers = function() {
         // Test-Ergebnis anzeigen
         this.showTestResult(message, response.success);
 
-        // Beispieldaten anzeigen (nur bei erfolgreicher CSV-Validierung)
-        if (response.success && data.columns && data.sample_data && type !== 'config') {
+        // Mapping-UI anzeigen (NEU)
+        if (response.success && data.columns && type !== 'config') {
+            this.showColumnMappingUI(data.columns); // NEUER AUFRUF
             this.showSampleData(data.columns, data.sample_data);
         } else {
             this.clearSampleData();
+            this.clearColumnMappingUI(); // NEUER AUFRUF
         }
 
-        // Erweiterte Informationen loggen
         this.debug.log(`Validierung ${type} abgeschlossen:`, {
             success: response.success,
             rows: data.rows,
-            columns: data.columns ? data.columns.length : 0,
-            delimiter: data.delimiter,
-            file_size: data.file_size
+            columns: data.columns ? data.columns.length : 0
         });
     };
 
