@@ -697,8 +697,16 @@ function csv_import_parse_csv_content( string $csv_content ): array {
     // Zeilenumbrüche normalisieren
     $csv_content = csv_import_normalize_line_endings( $csv_content );
     
-    // Bestes Trennzeichen ermitteln
-    $delimiter = csv_import_detect_csv_delimiter( $csv_content );
+    // Trennzeichen aus den Einstellungen holen oder automatisch erkennen
+    $saved_delimiter = get_option( 'csv_import_delimiter', 'auto' );
+
+    if ( ! empty( $saved_delimiter ) && 'auto' !== $saved_delimiter ) {
+        // Manuell gesetztes Trennzeichen verwenden (Tabulator-Zeichen umwandeln)
+        $delimiter = str_replace( '\t', "\t", $saved_delimiter );
+    } else {
+        // Fallback auf automatische Erkennung
+        $delimiter = csv_import_detect_csv_delimiter( $csv_content );
+    }
     
     // CSV in Zeilen aufteilen
     $lines = str_getcsv( $csv_content, "\n" );
