@@ -250,7 +250,7 @@ function csv_import_pro_init() {
     
     // === INITIALIZATION ERFOLGREICH ===
     if ( function_exists( 'csv_import_log' ) ) {
-        csv_import_log( 'info', 'CSV Import Pro erfolgreich initialisiert', [
+        csv_import_log( 'debug', 'CSV Import Pro erfolgreich initialisiert', [
             'version' => CSV_IMPORT_PRO_VERSION,
             'scheduler_active' => class_exists( 'CSV_Import_Scheduler' ),
             'admin_active' => is_admin() && class_exists( 'CSV_Import_Pro_Admin' ),
