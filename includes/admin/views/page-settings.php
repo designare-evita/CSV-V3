@@ -109,7 +109,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 								</p>
 							</td>
 						</tr>
-<tr>
+                        <tr>
 							<th scope="row"><label for="csv_import_delimiter">CSV-Trennzeichen</label></th>
 							<td>
 								<input type="text" id="csv_import_delimiter" name="csv_import_delimiter"
@@ -210,15 +210,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 
 			<div class="csv-settings-card card">
-			<h2>📊 CSV Beispieldaten</h2>
-			<p class="description">Nach einer erfolgreichen CSV-Validierung werden hier die ersten Zeilen angezeigt.</p>
-			<div id="csv-sample-data-container" class="test-results-container">
+				<h2>📊 CSV Beispieldaten</h2>
+				<p class="description">Nach einer erfolgreichen CSV-Validierung werden hier die ersten Zeilen angezeigt.</p>
+				<div id="csv-sample-data-container" class="test-results-container">
+					</div>
+			</div>
+
+            <div id="csv-column-mapping-container" class="csv-settings-card card" style="display:none; grid-column: span 2;">
 				</div>
-		</div>
 
-		<div id="csv-column-mapping-container" class="csv-settings-card card" style="display:none; grid-column: span 2;">
-            </div>
-
-	</div> <?php submit_button( 'Einstellungen speichern' ); ?>
-</form>
+		</div> <?php submit_button( 'Einstellungen speichern' ); ?>
+	</form>
 </div>
