@@ -152,8 +152,11 @@ function csv_import_start_handler() {
             throw new Exception( 'Import-Klasse (CSV_Import_Pro_Run) nicht gefunden.' );
         }
         
-        // Import starten
-        $result = CSV_Import_Pro_Run::run( $source );
+        // Mapping-Daten aus dem AJAX-Request holen (NEU)
+$mapping = isset( $_POST['mapping'] ) && is_array( $_POST['mapping'] ) ? wp_unslash( $_POST['mapping'] ) : [];
+
+// Die run-Methode mit dem neuen Mapping-Parameter aufrufen
+$result = CSV_Import_Pro_Run::run( $source, $mapping );
         
         // Logging
         if ( function_exists( 'csv_import_log' ) ) {
