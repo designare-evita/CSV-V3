@@ -96,6 +96,30 @@ class CSV_Import_Pro_Run {
 		}
 	}
 
+	/**
+ * Wendet das benutzerdefinierte Spalten-Mapping auf eine einzelne Datenzeile an.
+ * @param array $row Die Originalzeile aus der CSV.
+ * @return array Die Zeile mit den neuen, zugeordneten Spaltennamen.
+ */
+private function apply_mapping( array $row ): array {
+    if ( empty( $this->mapping ) ) {
+        return $row; // Kein Mapping vorhanden, Originalzeile zurückgeben
+    }
+
+    $mapped_row = [];
+    // Geht jede Zuordnung durch (z.B. "Titel" -> "post_title")
+    foreach ( $this->mapping as $original_column => $target_field ) {
+        // Prüft, ob die Spalte in der CSV-Zeile existiert
+        if ( isset( $row[ $original_column ] ) ) {
+            // Weist den Wert der Originalspalte dem neuen Zielfeld zu
+            $mapped_row[ $target_field ] = $row[ $original_column ];
+        }
+    }
+
+    // Fügt alle nicht gemappten Felder wieder hinzu, damit keine Daten verloren gehen
+    return array_merge($row, $mapped_row);
+}
+	
 	private function load_and_validate_config(): void {
 		$this->config = csv_import_get_config();
 		
