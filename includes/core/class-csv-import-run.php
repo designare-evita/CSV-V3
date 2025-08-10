@@ -22,10 +22,11 @@ class CSV_Import_Pro_Run {
 		$this->session_id = 'run_' . time() . '_' . uniqid();
 	}
 
-	public static function run( string $source ): array {
-		$importer = new self( $source );
-		return $importer->execute_import();
-	}
+	public static function run( string $source, array $mapping = [] ): array { // Zeile anpassen
+    $importer = new self( $source );
+    $importer->mapping = $mapping; // Diese Zeile hinzufügen
+    return $importer->execute_import();
+}
 
 	private function execute_import(): array {
 		// Fehler-Handler Check
