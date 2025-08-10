@@ -447,7 +447,7 @@ window.csvImportCheckHandlers = function() {
         
         // Periodische System-Health-Checks
         setInterval(() => {
-            this.checkSystemHealth();
+           this.systemHealthCheck(); 
         }, this.config.healthCheckInterval);
     };
 
