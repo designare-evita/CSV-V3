@@ -210,13 +210,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 
 			<div class="csv-settings-card card">
-				<h2>📊 CSV Beispieldaten</h2>
-				<p class="description">Nach einer erfolgreichen CSV-Validierung werden hier die ersten Zeilen angezeigt.</p>
-				<div id="csv-sample-data-container" class="test-results-container">
-					</div>
-			</div>
-
+			<h2>📊 CSV Beispieldaten</h2>
+			<p class="description">Nach einer erfolgreichen CSV-Validierung werden hier die ersten Zeilen angezeigt.</p>
+			<div id="csv-sample-data-container" class="test-results-container">
+				</div>
 		</div>
-		<?php submit_button( 'Einstellungen speichern' ); ?>
-	</form>
+
+		<div id="csv-column-mapping-container" class="csv-settings-card card" style="display:none; grid-column: span 2;">
+            </div>
+
+	</div> <?php submit_button( 'Einstellungen speichern' ); ?>
+</form>
 </div>
