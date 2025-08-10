@@ -100,28 +100,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 
 			<div class="card">
-				<h2>📊 System Status</h2>
-				<?php
-				$health        = csv_import_system_health_check();
-				$health_labels = [
-					'memory_ok'      => 'Memory Limit',
-					'php_version_ok' => 'PHP Version',
-					'disk_space_ok'  => 'Freier Speicher',
-					'permissions_ok' => 'Schreibrechte',
-					'time_ok'        => 'Ausführungszeit'
-				];
-				?>
-				<ul class="status-list">
-					<?php foreach ( $health as $check => $status ) : ?>
-                        <?php if(isset($health_labels[$check])): ?>
-						<li>
-							<?php echo $status ? '✅' : '❌'; ?>
-							<?php echo esc_html( $health_labels[ $check ] ); ?>
-						</li>
-                        <?php endif; ?>
-					<?php endforeach; ?>
-				</ul>
-			</div>
+    <h2>📊 System Status</h2>
+    <?php
+    $health        = csv_import_system_health_check();
+    $health_labels = [
+        'memory_ok'         => 'Memory Limit',
+        'php_version_ok'    => 'PHP Version',
+        'disk_space_ok'     => 'Freier Speicher',
+        'permissions_ok'    => 'Schreibrechte',
+        'time_ok'           => 'Ausführungszeit',
+        'curl_ok'           => 'cURL Extension',
+        'wp_version_ok'     => 'WordPress Version',
+        'import_locks_ok'   => 'Import Locks',        // NEU
+        'no_stuck_processes' => 'Hängende Prozesse'   // NEU
+    ];
+    ?>
+    <ul class="status-list">
+        <?php foreach ( $health as $check => $status ) : ?>
+            <?php if(isset($health_labels[$check])): ?>
+            <li>
+                <?php echo $status ? '✅' : '❌'; ?>
+                <?php echo esc_html( $health_labels[ $check ] ); ?>
+            </li>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    </ul>
+</div>
 
 			<div class="card">
 				<h2>📈 Statistiken</h2>
