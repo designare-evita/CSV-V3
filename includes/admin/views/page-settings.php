@@ -1,13 +1,17 @@
 <?php
 /**
  * View-Datei für die Einstellungsseite.
+ * NEUE VERSION: Flexibles Grid Layout für optimale Darstellung
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 ?>
 <div class="wrap">
-	<h1>CSV Import Einstellungen</h1>
+	<div class="csv-dashboard-header">
+		<h1>⚙️ CSV Import Einstellungen</h1>
+		<p>Konfigurieren Sie alle Aspekte des CSV-Imports für optimale Ergebnisse</p>
+	</div>
 
 	<?php
 	if ( isset( $_GET['settings-updated'] ) ) {
@@ -19,11 +23,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php
 		settings_fields( 'csv_import_settings' );
 		?>
-		<div class="csv-settings-grid">
+		
+		<!-- 🎯 NEUES FLEXIBLES SETTINGS GRID -->
+		<div class="csv-settings-dashboard">
 
-			<div class="csv-settings-card card">
-				<h2>📋 Basis-Konfiguration</h2>
-				<table class="form-table" role="presentation">
+			<!-- ROW 1: Basis-Konfiguration & Quellen -->
+			<div class="csv-import-box settings-box">
+				<h3>
+					<span class="step-number completed">1</span>
+					<span class="step-icon">📋</span>
+					Basis-Konfiguration
+				</h3>
+				<span class="status-indicator status-success">✅ Grundeinstellungen</span>
+				
+				<table class="form-table compact-form" role="presentation">
 					<tbody>
 						<tr>
 							<th scope="row"><label for="csv_import_template_id">Template-Post ID</label></th>
@@ -37,7 +50,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 							</td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="csv_import_page_builder">Page Builder / Editor</label></th>
+							<th scope="row"><label for="csv_import_page_builder">Page Builder</label></th>
 							<td>
 								<select id="csv_import_page_builder" name="csv_import_page_builder">
 									<?php
@@ -48,7 +61,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 									}
 									?>
 								</select>
-								<p class="description">Wählen Sie den Editor, mit dem das Template erstellt wurde.</p>
+								<p class="description">Editor für das Template</p>
 							</td>
 						</tr>
 						<tr>
@@ -83,9 +96,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</table>
 			</div>
 
-			<div class="csv-settings-card card">
-				<h2>🔗 Quellen</h2>
-				<table class="form-table" role="presentation">
+			<div class="csv-import-box settings-box">
+				<h3>
+					<span class="step-number completed">2</span>
+					<span class="step-icon">🔗</span>
+					CSV-Quellen
+				</h3>
+				
+				<?php 
+				$dropbox_url = get_option( 'csv_import_dropbox_url' );
+				$local_path = get_option( 'csv_import_local_path', 'data/landingpages.csv' );
+				$has_sources = !empty($dropbox_url) || !empty($local_path);
+				?>
+				
+				<?php if ( $has_sources ) : ?>
+					<span class="status-indicator status-success">✅ Quellen konfiguriert</span>
+				<?php else : ?>
+					<span class="status-indicator status-error">❌ Keine Quellen</span>
+				<?php endif; ?>
+				
+				<table class="form-table compact-form" role="presentation">
 					<tbody>
 						<tr>
 							<th scope="row"><label for="csv_import_dropbox_url">Dropbox CSV-URL</label></th>
@@ -103,20 +133,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 									   value="<?php echo esc_attr( get_option( 'csv_import_local_path', 'data/landingpages.csv' ) ); ?>"
 									   class="regular-text">
 								<p class="description">
-									Pfad relativ zum WordPress-Root:
-									<code><?php echo esc_html( ABSPATH . get_option( 'csv_import_local_path', 'data/landingpages.csv' ) ); ?></code>
+									Pfad: <code><?php echo esc_html( ABSPATH . get_option( 'csv_import_local_path', 'data/landingpages.csv' ) ); ?></code>
 									<?php echo csv_import_get_file_status( ABSPATH . get_option( 'csv_import_local_path', 'data/landingpages.csv' ) ); ?>
 								</p>
 							</td>
 						</tr>
-                        <tr>
+						<tr>
 							<th scope="row"><label for="csv_import_delimiter">CSV-Trennzeichen</label></th>
 							<td>
 								<input type="text" id="csv_import_delimiter" name="csv_import_delimiter"
 									   value="<?php echo esc_attr( get_option( 'csv_import_delimiter', 'auto' ) ); ?>"
 									   class="small-text">
 								<p class="description">
-									Standard ist <code>auto</code> für automatische Erkennung. Geben Sie hier ein Zeichen ein (z.B. <code>;</code> oder <code>,</code>), um es zu erzwingen. Für Tabulator geben Sie <code>\t</code> ein.
+									Standard: <code>auto</code> für automatische Erkennung.
 								</p>
 							</td>
 						</tr>
@@ -124,9 +153,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</table>
 			</div>
 
-			<div class="csv-settings-card card">
-				<h2>🖼️ Medien-Einstellungen</h2>
-				<table class="form-table" role="presentation">
+			<!-- ROW 2: Medien & SEO -->
+			<div class="csv-import-box settings-box">
+				<h3>
+					<span class="step-number completed">3</span>
+					<span class="step-icon">🖼️</span>
+					Medien-Einstellungen
+				</h3>
+				<span class="status-indicator status-active">⚙️ Medien-Konfiguration</span>
+				
+				<table class="form-table compact-form" role="presentation">
 					<tbody>
 						<tr>
 							<th scope="row"><label for="csv_import_image_source">Bildquelle</label></th>
@@ -158,9 +194,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</table>
 			</div>
 
-			<div class="csv-settings-card card">
-				<h2>🎯 SEO &amp; Erweitert</h2>
-				<table class="form-table" role="presentation">
+			<div class="csv-import-box settings-box">
+				<h3>
+					<span class="step-number completed">4</span>
+					<span class="step-icon">🎯</span>
+					SEO & Erweitert
+				</h3>
+				<span class="status-indicator status-active">🎯 SEO-Einstellungen</span>
+				
+				<table class="form-table compact-form" role="presentation">
 					<tbody>
 						<tr>
 							<th scope="row"><label for="csv_import_seo_plugin">SEO-Plugin</label></th>
@@ -174,14 +216,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 									}
 									?>
 								</select>
-								<p class="description">Wähle dein aktives SEO-Plugin zur Befüllung der Meta-Daten.</p>
+								<p class="description">Wähle dein aktives SEO-Plugin</p>
 							</td>
 						</tr>
 						<tr>
 							<th scope="row"><label for="csv_import_required_columns">Erforderliche Spalten</label></th>
 							<td>
 								<textarea id="csv_import_required_columns" name="csv_import_required_columns" rows="3" class="large-text"><?php echo esc_textarea( get_option( 'csv_import_required_columns', "post_title\npost_name" ) ); ?></textarea>
-								<p class="description">Eine Spalte pro Zeile.</p>
+								<p class="description">Eine Spalte pro Zeile</p>
 							</td>
 						</tr>
 						<tr>
@@ -197,28 +239,67 @@ if ( ! defined( 'ABSPATH' ) ) {
 					</tbody>
 				</table>
 			</div>
-			
-			<div class="csv-settings-card card">
-				<h2>🧪 Konfiguration testen</h2>
+
+			<!-- ROW 3: Test & Validierung -->
+			<div class="csv-import-box settings-box">
+				<h3>
+					<span class="step-number active">5</span>
+					<span class="step-icon">🧪</span>
+					Konfiguration testen
+				</h3>
+				<span class="status-indicator status-pending">⏳ Bereit für Tests</span>
+				
 				<p>Überprüfen Sie Ihre Einstellungen und die CSV-Dateien vor dem Import.</p>
-				<p>
+				
+				<div class="action-buttons">
 					<button type="button" class="button button-secondary" onclick="csvImportTestConfig()">⚙️ Konfiguration prüfen</button>
 					<button type="button" class="button button-secondary" onclick="csvImportValidateCSV('dropbox')">📊 Dropbox CSV validieren</button>
 					<button type="button" class="button button-secondary" onclick="csvImportValidateCSV('local')">📁 Lokale CSV validieren</button>
-				</p>
+				</div>
+				
 				<div id="csv-test-results" class="test-results-container"></div>
 			</div>
 
-			<div class="csv-settings-card card">
-				<h2>📊 CSV Beispieldaten</h2>
+			<div class="csv-import-box settings-box">
+				<h3>
+					<span class="step-number">6</span>
+					<span class="step-icon">📊</span>
+					CSV Beispieldaten
+				</h3>
+				<span class="status-indicator status-pending">📄 Daten-Vorschau</span>
+				
 				<p class="description">Nach einer erfolgreichen CSV-Validierung werden hier die ersten Zeilen angezeigt.</p>
-				<div id="csv-sample-data-container" class="test-results-container">
+				
+				<div id="csv-sample-data-container" class="sample-data-container">
+					<div class="info-message">
+						<strong>Info:</strong> Führen Sie zuerst eine CSV-Validierung durch, um Beispieldaten zu sehen.
 					</div>
+				</div>
 			</div>
 
-            <div id="csv-column-mapping-container" class="csv-settings-card card" style="display:none; grid-column: span 2;">
-				</div>
+			<!-- ROW 4: Column Mapping (Spans full width when visible) -->
+			<div id="csv-column-mapping-container" class="csv-import-box settings-box mapping-box" style="display:none;">
+				<h3>
+					<span class="step-number active">7</span>
+					<span class="step-icon">🔄</span>
+					Spalten-Zuordnung
+				</h3>
+				<span class="status-indicator status-active">🔄 Mapping aktiv</span>
+				
+				<!-- Column mapping content will be inserted here by JavaScript -->
+			</div>
 
-		</div> <?php submit_button( 'Einstellungen speichern' ); ?>
+		</div>
+
+		<!-- Save Button -->
+		<div class="csv-dashboard-footer">
+			<?php submit_button( '💾 Einstellungen speichern', 'primary large', 'submit', false ); ?>
+			
+			<div style="margin-top: 15px;">
+				<p>
+					💡 <strong>Tipp:</strong> Testen Sie Ihre Konfiguration nach dem Speichern mit den Validierungs-Buttons.
+				</p>
+			</div>
+		</div>
 	</form>
 </div>
