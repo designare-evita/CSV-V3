@@ -140,10 +140,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 		</div>
 
-		<div class="bottom-actions">
-			<a href="<?php echo esc_url( admin_url( 'tools.php?page=csv-import-settings' ) ); ?>"
-			   class="button button-secondary">⚙️ Alle Einstellungen</a>
-			<button type="button" class="button button-secondary" onclick="location.reload();">🔄 Seite aktualisieren</button>
-		</div>
-	</div>
+<div class="bottom-actions">
+    <a href="<?php echo esc_url( admin_url( 'tools.php?page=csv-import-settings' ) ); ?>"
+       class="button button-secondary">⚙️ Alle Einstellungen</a>
+    <button type="button" class="button button-secondary" onclick="location.reload();">🔄 Seite aktualisieren</button>
+
+    <?php // [!code ++] ?>
+    <?php // NEUER RESET-BUTTON HINZUGEFÜGT ?>
+    <a href="<?php echo esc_url( wp_nonce_url( admin_url('tools.php?page=csv-import&csv_emergency_reset=1'), 'csv_import_emergency_reset' ) ); ?>"
+       class="button button-danger" style="color: #d63638; border-color: #d63638;"
+       onclick="return confirm('Notfall-Reset wirklich durchführen? Alle Sperren werden entfernt.');">
+        🚨 Notfall-Reset
+    </a>
+    <?php // [!code ++] ?>
 </div>
