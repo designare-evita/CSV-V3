@@ -1198,8 +1198,8 @@ function csv_import_system_health_check(): array {
         'php_version_ok' => true,
         'curl_ok'        => true,
         'wp_version_ok'  => true,
-        'import_locks'   => false,
-        'stuck_processes' => false
+        'import_locks'   => true,
+        'stuck_processes' => true,
     ];
 
     // Memory Check
@@ -1232,15 +1232,20 @@ function csv_import_system_health_check(): array {
     // Permissions Check
     $upload_dir = wp_upload_dir();
     $health['permissions_ok'] = is_writable( $upload_dir['basedir'] );
-    
-    // Import Lock Check
-    $health['import_locks'] = get_option('csv_import_running_lock') !== false;
-    
-    // Stuck Process Check
+
+    // Import Lock Check (prüft jetzt, ob der Eintrag nicht leer ist)
+    $lock_data = get_option('csv_import_running_lock');
+    if ( ! empty($lock_data) ) {
+        $health['import_locks'] = false; // Problem gefunden
+    }
+
+    // Stuck Process Check (prüft jetzt auf Inhalt und Zeit)
     $progress = get_option('csv_import_progress', []);
-    if (!empty($progress['running']) && !empty($progress['start_time'])) {
+    if ( ! empty($progress) && ! empty($progress['running']) && ! empty($progress['start_time']) ) {
         $runtime = time() - $progress['start_time'];
-        $health['stuck_processes'] = $runtime > 600; // 10 Minuten
+        if ($runtime > 600) { // 10 Minuten
+             $health['stuck_processes'] = false; // Problem gefunden
+        }
     }
 
     return $health;
