@@ -30,6 +30,72 @@ define( 'CSV_IMPORT_PRO_LOADED', true );
 define( 'CSV_IMPORT_PRO_VERSION', '8.5' );
 define( 'CSV_IMPORT_PRO_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CSV_IMPORT_PRO_URL', plugin_dir_url( __FILE__ ) );
+// Cleanup beim Aktivieren
+register_activation_hook(__FILE__, 'my_csv_import_cleanup');
+
+function my_csv_import_cleanup() {
+    global $wpdb;
+
+    // 1. Alle eigenen CSV-Import-CRON-Events bereinigen
+    $hooks = [
+        'csv_import_scheduled',
+        'csv_import_error_cleanup',
+        'csv_import_daily_maintenance',
+        'csv_import_daily_cleanup',
+        'csv_import_weekly_maintenance'
+    ];
+
+    foreach ($hooks as $hook) {
+        while ($timestamp = wp_next_scheduled($hook)) {
+            wp_unschedule_event($timestamp, $hook);
+        }
+    }
+
+    // 2. Import-Locks entfernen
+    $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '%import_lock%'");
+
+    // 3. Hängende Jobs löschen (falls Action Scheduler genutzt wird)
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}actionscheduler_actions'")) {
+        $wpdb->query(
+            "DELETE FROM {$wpdb->prefix}actionscheduler_actions 
+             WHERE hook LIKE 'csv_import%' AND status IN ('in-progress', 'pending')"
+        );
+    }
+
+    // 4. Jobs neu planen
+    if (!wp_next_scheduled('csv_import_scheduled', ['local', []])) {
+        wp_schedule_event(strtotime('02:00:00'), 'daily', 'csv_import_scheduled', ['local', []]);
+    }
+    if (!wp_next_scheduled('csv_import_error_cleanup')) {
+        wp_schedule_event(time(), 'daily', 'csv_import_error_cleanup');
+    }
+    if (!wp_next_scheduled('csv_import_daily_cleanup')) {
+        wp_schedule_event(time(), 'daily', 'csv_import_daily_cleanup');
+    }
+    if (!wp_next_scheduled('csv_import_daily_maintenance')) {
+        wp_schedule_event(time(), 'daily', 'csv_import_daily_maintenance');
+    }
+    if (!wp_next_scheduled('csv_import_weekly_maintenance')) {
+        wp_schedule_event(time(), 'weekly', 'csv_import_weekly_maintenance');
+    }
+}
+
+// Optional: Cleanup beim Deaktivieren
+register_deactivation_hook(__FILE__, function() {
+    $hooks = [
+        'csv_import_scheduled',
+        'csv_import_error_cleanup',
+        'csv_import_daily_maintenance',
+        'csv_import_daily_cleanup',
+        'csv_import_weekly_maintenance'
+    ];
+    foreach ($hooks as $hook) {
+        while ($timestamp = wp_next_scheduled($hook)) {
+            wp_unschedule_event($timestamp, $hook);
+        }
+    }
+});
+
 define( 'CSV_IMPORT_PRO_BASENAME', plugin_basename( __FILE__ ) );
 
 /**
