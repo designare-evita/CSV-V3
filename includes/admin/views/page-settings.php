@@ -109,6 +109,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 								</p>
 							</td>
 						</tr>
+<tr>
+							<th scope="row"><label for="csv_import_delimiter">CSV-Trennzeichen</label></th>
+							<td>
+								<input type="text" id="csv_import_delimiter" name="csv_import_delimiter"
+									   value="<?php echo esc_attr( get_option( 'csv_import_delimiter', 'auto' ) ); ?>"
+									   class="small-text">
+								<p class="description">
+									Standard ist <code>auto</code> für automatische Erkennung. Geben Sie hier ein Zeichen ein (z.B. <code>;</code> oder <code>,</code>), um es zu erzwingen. Für Tabulator geben Sie <code>\t</code> ein.
+								</p>
+							</td>
+						</tr>
 					</tbody>
 				</table>
 			</div>
