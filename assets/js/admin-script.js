@@ -435,10 +435,10 @@ window.csvImportCheckHandlers = function() {
             this.startProgressUpdates();
         }
         
-        // Periodische System-Health-Checks
-        setInterval(() => {
+        // Periodische System-Health-Checks (DEAKTIVIERT)
+        /* //setInterval(() => {
            this.systemHealthCheck(); 
-        }, this.config.healthCheckInterval);
+        }, this.config.healthCheckInterval);*/ //
     };
 
     /**
