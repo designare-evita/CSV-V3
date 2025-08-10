@@ -651,22 +651,22 @@ window.csvImportCheckHandlers = function() {
 
         // UI-Feedback
         this.showTestProgress('config', 'Konfiguration wird geprüft...');
+// Mapping-Daten aus dem Formular sammeln (NEU)
+const mappingData = {};
+$('#csv-column-mapping-container select').each(function() {
+    const columnName = $(this).attr('name').replace(/csv_mapping\[|\]/g, '');
+    const targetField = $(this).val();
+    if (targetField) {
+        mappingData[columnName] = targetField;
+    }
+});
 
-        // AJAX-Request
-        this.performAjaxRequest({
-            action: 'csv_import_validate',
-            type: 'config'
-        })
-        .done((response) => {
-            this.handleValidationResult(response, 'config');
-        })
-        .fail((xhr, status, error) => {
-            this.handleValidationError('Konfigurationstest', error, xhr);
-        })
-        .always(() => {
-            this.status.validationInProgress = false;
-        });
-    };
+// AJAX-Request (jetzt mit Mapping-Daten)
+this.performAjaxRequest({
+    action: 'csv_import_start',
+    source: source,
+    mapping: mappingData // Mapping-Daten mitsenden
+})
 
     /**
      * CSV-Datei validieren - Verbessert
