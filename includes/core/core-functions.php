@@ -1233,21 +1233,27 @@ function csv_import_system_health_check(): array {
     $upload_dir = wp_upload_dir();
     $health['permissions_ok'] = is_writable( $upload_dir['basedir'] );
 
-    // Import Lock Check (prüft jetzt, ob der Eintrag nicht leer ist)
-    $lock_data = get_option('csv_import_running_lock');
-    if ( ! empty($lock_data) ) {
+
+    global $wpdb;
+
+    // Import Lock Check (Direkte DB-Abfrage, um Cache zu umgehen)
+    $lock_value = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'csv_import_running_lock' LIMIT 1" );
+    if ( ! empty($lock_value) ) {
         $health['import_locks'] = false; // Problem gefunden
     }
 
-    // Stuck Process Check (prüft jetzt auf Inhalt und Zeit)
-    $progress = get_option('csv_import_progress', []);
-    if ( ! empty($progress) && ! empty($progress['running']) && ! empty($progress['start_time']) ) {
-        $runtime = time() - $progress['start_time'];
-        if ($runtime > 600) { // 10 Minuten
-             $health['stuck_processes'] = false; // Problem gefunden
+    // Stuck Process Check (Direkte DB-Abfrage, um Cache zu umgehen)
+    $progress_value = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'csv_import_progress' LIMIT 1" );
+    if ( ! empty($progress_value) ) {
+        $progress = maybe_unserialize($progress_value);
+        if ( is_array($progress) && !empty($progress['running']) && !empty($progress['start_time']) ) {
+            $runtime = time() - $progress['start_time'];
+            if ($runtime > 600) { // Länger als 10 Minuten
+                 $health['stuck_processes'] = false; // Problem gefunden
+            }
         }
     }
-
+    
     return $health;
 }
 
