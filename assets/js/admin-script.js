@@ -65,9 +65,9 @@ window.csvImportEmergencyReset = function() {
 };
 
 window.csvImportSystemHealth = function() {
-    console.log('csvImportSystemHealth aufgerufen');
+    console.log('csvImportSystemHealth aufgerufen (MANUELL)');
     if (typeof window.CSVImportAdmin !== 'undefined' && window.CSVImportAdmin.systemHealthCheck) {
-        window.CSVImportAdmin.systemHealthCheck();
+        window.CSVImportAdmin.systemHealthCheck(true); // TRUE = Manueller Aufruf mit Pop-up
     } else {
         alert('System-Health-Funktionen nicht verfügbar.');
     }
