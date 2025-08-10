@@ -586,7 +586,7 @@ class CSV_Import_Pro_Admin {
         $settings = [
             'template_id', 'post_type', 'post_status', 'page_builder', 'dropbox_url', 
             'local_path', 'image_source', 'image_folder', 'memory_limit', 'time_limit', 
-            'seo_plugin', 'required_columns', 'skip_duplicates'
+            'seo_plugin', 'required_columns', 'skip_duplicates' 'delimiter'
         ];
         
         foreach ($settings as $setting) {
