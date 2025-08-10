@@ -60,12 +60,24 @@ if ( ! class_exists( 'CSV_Import_Error_Handler' ) ) {
         }
         
         private static function add_to_log( $error_entry ) {
-            self::$error_log[] = $error_entry;
-            if ( count( self::$error_log ) > self::$max_errors ) {
-                array_shift( self::$error_log );
-            }
-            update_option( 'csv_import_error_log', array_slice( self::$error_log, -50 ) );
-        }
+    // Schritt 1: Bestehendes Log aus der Datenbank laden
+    $log = get_option('csv_import_error_log', []);
+
+    // Schritt 2: Neuen Eintrag hinzufügen
+    $log[] = $error_entry;
+
+    // Schritt 3: Sicherstellen, dass das Log nicht zu groß wird
+    if ( count( $log ) > self::$max_errors ) {
+        // Nur die letzten X Einträge behalten, um das Log zu kürzen
+        $log = array_slice( $log, -self::$max_errors );
+    }
+
+    // Schritt 4: Das aktualisierte Log zurück in die Datenbank speichern
+    update_option( 'csv_import_error_log', $log );
+
+    // Optional: Die statische Variable für die aktuelle Anfrage aktualisieren
+    self::$error_log = $log;
+}
         
         private static function update_error_counts( $level ) {
             if ( ! isset( self::$error_counts[ $level ] ) ) {
