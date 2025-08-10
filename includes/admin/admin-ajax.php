@@ -817,86 +817,40 @@ function csv_import_system_health_handler() {
             'disk_free_space' => disk_free_space( ABSPATH )
         ];
         
-        // PROFESSIONELLE LÖSUNG: Check-Type-basierte Interpretation
+        // ===================================================================
+        // VEREINFACHTE ISSUE-DETECTION: Einheitliche Regel true = OK, false = Problem
+        // ===================================================================
+        
         $issues = [];
         
-        // Plugin-Health prüfen (Standard: true = OK, false = Problem)
-        foreach ( $health_data['plugin_health'] as $check => $status ) {
-            if ( ! $status ) {
-                $issues[] = "Plugin: {$check} fehlt";
+        // System-Health prüfen (ALLE Checks: true = OK, false = Problem)
+        if ( isset( $health_data['system_health'] ) && is_array( $health_data['system_health'] ) ) {
+            foreach ( $health_data['system_health'] as $check => $status ) {
+                if ( $status === false ) {
+                    // Schöne Namen für die Anzeige
+                    $check_names = [
+                        'memory_ok' => 'Memory Limit',
+                        'time_ok' => 'Execution Time',
+                        'disk_space_ok' => 'Disk Space',
+                        'permissions_ok' => 'File Permissions',
+                        'php_version_ok' => 'PHP Version',
+                        'curl_ok' => 'cURL Extension',
+                        'wp_version_ok' => 'WordPress Version',
+                        'import_locks_ok' => 'Import Locks',
+                        'no_stuck_processes' => 'Hängende Prozesse'
+                    ];
+                    
+                    $display_name = $check_names[$check] ?? ucwords(str_replace('_', ' ', $check));
+                    $issues[] = "System: {$display_name} Problem";
+                }
             }
         }
         
-        // System-Health prüfen mit Check-Type-spezifischer Logik
-        if ( isset( $health_data['system_health'] ) && is_array( $health_data['system_health'] ) ) {
-            
-            // Definiere Check-Types mit ihrer jeweiligen Semantik
-            $check_semantics = [
-                // "Negative" Checks: false = gut, true = Problem
-                'import_locks' => [
-                    'type' => 'negative',
-                    'good_value' => false,
-                    'description' => 'Import-Locks'
-                ],
-                'stuck_processes' => [
-                    'type' => 'negative', 
-                    'good_value' => false,
-                    'description' => 'Hängende Prozesse'
-                ],
-                
-                // "Positive" Checks: true = gut, false = Problem  
-                'memory_ok' => [
-                    'type' => 'positive',
-                    'good_value' => true,
-                    'description' => 'Memory Limit'
-                ],
-                'time_ok' => [
-                    'type' => 'positive',
-                    'good_value' => true, 
-                    'description' => 'Execution Time'
-                ],
-                'disk_space_ok' => [
-                    'type' => 'positive',
-                    'good_value' => true,
-                    'description' => 'Disk Space'
-                ],
-                'permissions_ok' => [
-                    'type' => 'positive',
-                    'good_value' => true,
-                    'description' => 'File Permissions'
-                ],
-                'php_version_ok' => [
-                    'type' => 'positive',
-                    'good_value' => true,
-                    'description' => 'PHP Version'
-                ],
-                'curl_ok' => [
-                    'type' => 'positive',
-                    'good_value' => true,
-                    'description' => 'cURL Extension'
-                ],
-                'wp_version_ok' => [
-                    'type' => 'positive',
-                    'good_value' => true,
-                    'description' => 'WordPress Version'
-                ]
-            ];
-            
-            // Interpretiere jeden Check basierend auf seinem Typ
-            foreach ( $health_data['system_health'] as $check => $status ) {
-                if ( isset( $check_semantics[$check] ) ) {
-                    $semantic = $check_semantics[$check];
-                    
-                    // Prüfe ob der Wert dem "guten" Wert entspricht
-                    if ( $status !== $semantic['good_value'] ) {
-                        $issues[] = "System: {$semantic['description']} Problem";
-                    }
-                } else {
-                    // Fallback für unbekannte Checks: Standard-Positive-Logik
-                    if ( $status === false ) {
-                        $issues[] = "System: {$check} Problem";
-                    }
-                }
+        // Plugin-Health prüfen (true = OK, false = Problem)
+        foreach ( $health_data['plugin_health'] as $check => $status ) {
+            if ( ! $status ) {
+                $check_name = ucwords(str_replace('_', ' ', $check));
+                $issues[] = "Plugin: {$check_name} fehlt";
             }
         }
         
@@ -906,15 +860,6 @@ function csv_import_system_health_handler() {
             'issues_count' => count( $issues ),
             'issues' => $issues
         ];
-        
-        // Debug-Information für Entwicklung
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            $health_data['debug_info'] = [
-                'total_checks' => count( $health_data['system_health'] ?? [] ),
-                'failed_checks' => count( $issues ),
-                'check_details' => $health_data['system_health'] ?? []
-            ];
-        }
         
         wp_send_json_success( $health_data );
         
