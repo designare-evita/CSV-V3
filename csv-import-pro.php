@@ -1083,3 +1083,75 @@ if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
     error_log( 'CSV Import Pro v' . CSV_IMPORT_PRO_VERSION . ' - Haupt-Plugin-Datei vollständig geladen (korrigierte Version 8.5)' );
 }
+
+
+// Debug-Admin-Seite hinzufügen
+add_action('admin_menu', function() {
+    add_submenu_page(
+        'tools.php',
+        'CSV Import Debug',
+        'CSV Import Debug',
+        'manage_options',
+        'csv-import-debug',
+        'csv_import_debug_page'
+    );
+});
+
+function csv_import_debug_page() {
+    global $wpdb;
+
+    echo '<div class="wrap"><h1>CSV Import Debug</h1>';
+
+    // Import-Locks prüfen
+    echo '<h2>Import Locks</h2>';
+    $locks = $wpdb->get_results("SELECT option_id, option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE '%import_lock%'");
+    if ($locks) {
+        echo '<table class="widefat"><thead><tr><th>ID</th><th>Name</th><th>Value</th></tr></thead><tbody>';
+        foreach ($locks as $lock) {
+            echo '<tr><td>'.$lock->option_id.'</td><td>'.$lock->option_name.'</td><td>'.$lock->option_value.'</td></tr>';
+        }
+        echo '</tbody></table>';
+    } else {
+        echo '<p><em>Keine Import-Locks gefunden.</em></p>';
+    }
+
+    // Stuck Processes prüfen (Action Scheduler)
+    echo '<h2>Hängende Prozesse</h2>';
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}actionscheduler_actions'")) {
+        $jobs = $wpdb->get_results(
+            "SELECT action_id, hook, status, scheduled_date_gmt 
+             FROM {$wpdb->prefix}actionscheduler_actions 
+             WHERE hook LIKE 'csv_import%' AND status IN ('in-progress','pending')"
+        );
+        if ($jobs) {
+            echo '<table class="widefat"><thead><tr><th>ID</th><th>Hook</th><th>Status</th><th>Scheduled</th></tr></thead><tbody>';
+            foreach ($jobs as $job) {
+                echo '<tr><td>'.$job->action_id.'</td><td>'.$job->hook.'</td><td>'.$job->status.'</td><td>'.$job->scheduled_date_gmt.'</td></tr>';
+            }
+            echo '</tbody></table>';
+        } else {
+            echo '<p><em>Keine hängenden Prozesse gefunden.</em></p>';
+        }
+    } else {
+        echo '<p><em>Action Scheduler Tabelle nicht gefunden.</em></p>';
+    }
+
+    // Bereinigungs-Button
+    if (isset($_POST['csv_import_cleanup']) && check_admin_referer('csv_import_debug')) {
+        $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '%import_lock%'");
+        if ($wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}actionscheduler_actions'")) {
+            $wpdb->query(
+                "DELETE FROM {$wpdb->prefix}actionscheduler_actions 
+                 WHERE hook LIKE 'csv_import%' AND status IN ('in-progress','pending')"
+            );
+        }
+        echo '<div class="updated"><p>Alle Import-Locks und hängenden Prozesse wurden bereinigt.</p></div>';
+    }
+
+    echo '<form method="post">';
+    wp_nonce_field('csv_import_debug');
+    submit_button('Alles bereinigen', 'delete', 'csv_import_cleanup');
+    echo '</form>';
+
+    echo '</div>';
+}
