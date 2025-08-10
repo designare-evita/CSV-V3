@@ -164,15 +164,17 @@ private function apply_mapping( array $row ): array {
 		}
 		
 		foreach ( $rows as $index => $row_data ) {
-			try {
-				// Fortschritt aktualisieren
-				if ( $processed % 5 === 0 ) {
-					csv_import_update_progress( $processed, $total_rows, 'processing' );
-				}
-				
-				$post_result = $this->process_single_row( $row_data );
-				
-				if ( $post_result === 'created' ) {
+    try {
+        // Fortschritt aktualisieren
+        if ( $processed % 5 === 0 ) {
+            csv_import_update_progress( $processed, $total_rows, 'processing' );
+        }
+
+        $mapped_row = $this->apply_mapping( $row_data ); // DIESE ZEILE HINZUFÜGEN
+
+        $post_result = $this->process_single_row( $mapped_row ); // HIER $row_data zu $mapped_row ändern
+
+        if ( $post_result === 'created' ) {
 					$results['created']++;
 				} elseif ( $post_result === 'skipped' ) {
 					$results['skipped']++;
