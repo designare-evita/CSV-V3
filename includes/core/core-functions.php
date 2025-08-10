@@ -1189,6 +1189,11 @@ function csv_import_add_seo_data( int $post_id, array $row, array $config ): voi
  *
  * @return array
  */
+/**
+ * Überprüft den Systemzustand auf potenzielle Probleme (FINALE VERSION MIT DIREKTER DB-ABFRAGE).
+ *
+ * @return array
+ */
 function csv_import_system_health_check(): array {
     $health = [
         'memory_ok'      => true,
@@ -1198,15 +1203,15 @@ function csv_import_system_health_check(): array {
         'php_version_ok' => true,
         'curl_ok'        => true,
         'wp_version_ok'  => true,
-        'import_locks'   => true,
-        'stuck_processes' => true,
+        'import_locks'   => true, // Standardmäßig auf OK (true) setzen
+        'stuck_processes' => true, // Standardmäßig auf OK (true) setzen
     ];
 
     // Memory Check
     $memory_limit = ini_get( 'memory_limit' );
     if ( $memory_limit && $memory_limit !== '-1' ) {
         $memory_bytes = csv_import_convert_to_bytes( $memory_limit );
-        $health['memory_ok'] = $memory_bytes >= 128 * 1024 * 1024; // 128MB minimum
+        $health['memory_ok'] = $memory_bytes >= 128 * 1024 * 1024;
     }
 
     // Time Limit Check
@@ -1226,19 +1231,23 @@ function csv_import_system_health_check(): array {
     // Disk Space Check
     $free_space = @disk_free_space( ABSPATH );
     if ( $free_space ) {
-        $health['disk_space_ok'] = $free_space >= 100 * 1024 * 1024; // 100MB minimum
+        $health['disk_space_ok'] = $free_space >= 100 * 1024 * 1024;
     }
 
     // Permissions Check
     $upload_dir = wp_upload_dir();
     $health['permissions_ok'] = is_writable( $upload_dir['basedir'] );
 
+    // ==========================================================
+    // FINALE KORREKTUR: DIREKTE DATENBANKABFRAGE
+    // ==========================================================
 
     global $wpdb;
 
     // Import Lock Check (Direkte DB-Abfrage, um Cache zu umgehen)
     $lock_value = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'csv_import_running_lock' LIMIT 1" );
-    if ( ! empty($lock_value) ) {
+    $lock_data = maybe_unserialize($lock_value);
+    if ( ! empty($lock_data) ) {
         $health['import_locks'] = false; // Problem gefunden
     }
 
@@ -1253,10 +1262,12 @@ function csv_import_system_health_check(): array {
             }
         }
     }
-    
+    // ==========================================================
+    // ENDE DER KORREKTUR
+    // ==========================================================
+
     return $health;
 }
-
 /**
  * Konvertiert Grössenangaben wie '256M' in Bytes.
  *
