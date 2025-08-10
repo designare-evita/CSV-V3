@@ -1736,6 +1736,66 @@ window.csvImportCheckHandlers = function() {
     };
 
     /**
+     * Erstellt und zeigt die Spalten-Mapping-Tabelle an.
+     */
+    CSVImportAdmin.showColumnMappingUI = function(columns) {
+        const mappingContainer = $('#csv-column-mapping-container');
+        if (!mappingContainer.length) {
+            this.debug.warn('Mapping-Container (#csv-column-mapping-container) nicht gefunden.');
+            return;
+        }
+
+        // WordPress-Zielfelder (könnten dynamisch per AJAX geladen werden, aber für den Start statisch)
+        const targetFields = ['post_title', 'post_content', 'post_excerpt', 'post_name', 'featured_image', 'benutzerdefiniertes_feld_1', 'benutzerdefiniertes_feld_2'];
+
+        let tableHtml = `
+            <h4>2. Spalten zuordnen</h4>
+            <p>Weisen Sie jeder Spalte aus Ihrer CSV-Datei ein WordPress-Feld zu.</p>
+            <table class="wp-list-table widefat striped">
+                <thead>
+                    <tr>
+                        <th>Spalte aus Ihrer CSV</th>
+                        <th>WordPress-Feld</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        columns.forEach(column => {
+            let optionsHtml = '<option value="">-- Ignorieren --</option>';
+            targetFields.forEach(field => {
+                // Versucht, eine passende Vorauswahl zu treffen
+                const isSelected = column.toLowerCase().replace(/ /g, '_') === field.toLowerCase() ? 'selected' : '';
+                optionsHtml += `<option value="${this.escapeHtml(field)}" ${isSelected}>${this.escapeHtml(field)}</option>`;
+            });
+
+            tableHtml += `
+                <tr>
+                    <td><strong>${this.escapeHtml(column)}</strong></td>
+                    <td>
+                        <select name="csv_mapping[${this.escapeHtml(column)}]">
+                            ${optionsHtml}
+                        </select>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHtml += '</tbody></table>';
+        mappingContainer.html(tableHtml).show();
+    },
+
+    /**
+     * Versteckt und leert die Mapping-Tabelle.
+     */
+    CSVImportAdmin.clearColumnMappingUI = function() {
+        const mappingContainer = $('#csv-column-mapping-container');
+        if (mappingContainer.length) {
+            mappingContainer.empty().hide();
+        }
+    },
+
+    /**
      * Validierungsfehler behandeln (erweitert)
      */
     CSVImportAdmin.handleValidationError = function(operation, error, xhr) {
