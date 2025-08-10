@@ -19,11 +19,27 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<div class="status-overview">
 			<div class="status-card">
 				<h3>System Health</h3>
+				<?php 
+				// HINZUGEFÜGT: Health-Labels Array für schöne Namen
+				$health_labels = [
+					'memory_ok'         => 'Memory Limit',
+					'php_version_ok'    => 'PHP Version',
+					'disk_space_ok'     => 'Freier Speicher',
+					'permissions_ok'    => 'Schreibrechte',
+					'time_ok'           => 'Ausführungszeit',
+					'curl_ok'           => 'cURL Extension',
+					'wp_version_ok'     => 'WordPress Version',
+					'import_locks_ok'   => 'Import Locks',
+					'no_stuck_processes' => 'Hängende Prozesse'
+				];
+				?>
 				<?php foreach ( $health as $check => $status ) : ?>
+					<?php if ( isset( $health_labels[$check] ) ) : ?>
 					<div class="status-item <?php echo $status ? 'status-ok' : 'status-error'; ?>">
 						<?php echo $status ? '✅' : '❌'; ?>
-						<?php echo esc_html( ucfirst( str_replace( '_ok', '', str_replace( '_', ' ', $check ) ) ) ); ?>
+						<?php echo esc_html( $health_labels[$check] ); ?>
 					</div>
+					<?php endif; ?>
 				<?php endforeach; ?>
 			</div>
 			
@@ -59,6 +75,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 		</div>
 		
+		<!-- Rest der Datei bleibt unverändert -->
 		<div class="card">
 			<div class="log-filters">
 				<a href="<?php echo esc_url( admin_url('tools.php?page=csv-import-logs') ); ?>" 
