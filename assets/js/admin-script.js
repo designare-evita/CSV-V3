@@ -1724,18 +1724,19 @@ window.csvImportCheckHandlers = function() {
     };
 
     /**
-     * Window-Focus-Handler
-     */
-    CSVImportAdmin.handleWindowFocus = function() {
-        this.debug.debug('Window Focus - prüfe Status');
-        
-        // Status bei Focus aktualisieren
-        if (this.status.importRunning) {
-            this.updateProgress();
-        }
-        
-        this.checkConnection();
-    };
+     * Window-Focus-Handler*/
+   
+CSVImportAdmin.handleWindowFocus = function() {
+    this.debug.debug('Window Focus - prüfe Status');
+
+    // Status bei Focus aktualisieren
+    if (this.status.importRunning) {
+        this.updateProgress();
+    }
+
+    this.checkConnection();
+    // this.systemHealthCheck(); // DEAKTIVIERT, UM STÄNDIGE POP-UPS ZU VERHINDERN
+};
 
     /**
      * Window-Blur-Handler
